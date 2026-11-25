@@ -15,7 +15,7 @@ export interface LoyaltyProgram {
   reward_terms: string;
   cooldown_hours: number;
   daily_pin_hash: string;
-  daily_pin_display: string; // Server/owner only
+  daily_pin_display: string;
   pin_rotated_at: string;
   is_active: boolean;
   v2_scratch_enabled: boolean;
@@ -37,6 +37,15 @@ export interface LoyaltyMember {
   consent_accepted_at: string;
   created_at: string;
 }
+
+// Safe client-side member representation (excludes phone_hash)
+export type PublicLoyaltyMember = Omit<LoyaltyMember, 'phone_hash'>;
+
+// Safe client-side program representation (excludes PINs and owner_id)
+export type PublicLoyaltyProgram = Omit<
+  LoyaltyProgram,
+  'daily_pin_hash' | 'daily_pin_display' | 'owner_id' | 'pin_rotated_at'
+>;
 
 export interface LoyaltyVisit {
   id: string;
@@ -68,14 +77,8 @@ export interface LoyaltyPinAttempt {
   attempted_at: string;
 }
 
-// Client-safe program view (excluding daily_pin_hash and daily_pin_display)
-export type PublicLoyaltyProgram = Omit<
-  LoyaltyProgram,
-  'daily_pin_hash' | 'daily_pin_display' | 'owner_id'
->;
-
 export interface LoyaltySessionPayload {
-  m: string; // memberId
-  p: string; // programId
+  m: string;
+  p: string;
   iat: number;
 }

@@ -220,6 +220,31 @@ $$;
 
 
 -- ============================================================================
+-- SCHEMA & TABLE GRANTS (Required for Supabase PostgREST roles)
+-- ============================================================================
+
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON TABLE
+  public.loyalty_programs,
+  public.loyalty_members,
+  public.loyalty_visits,
+  public.loyalty_vouchers,
+  public.loyalty_pin_attempts
+TO postgres, service_role;
+
+GRANT USAGE, SELECT ON SEQUENCE public.loyalty_pin_attempts_id_seq TO postgres, service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  public.loyalty_programs,
+  public.loyalty_members,
+  public.loyalty_visits,
+  public.loyalty_vouchers
+TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.redeem_loyalty_voucher(uuid, text) TO postgres, service_role, authenticated;
+
+
+-- ============================================================================
 -- COMMENTED-OUT SEED BLOCK (For local testing in Supabase SQL Editor)
 -- ============================================================================
 /*

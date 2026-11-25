@@ -1,17 +1,25 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { LoyaltyMember, LoyaltyProgram, LoyaltyVoucher } from '@/types/loyalty';
+import {
+  LoyaltyVoucher,
+  PublicLoyaltyMember,
+  PublicLoyaltyProgram,
+} from '@/types/loyalty';
 import {
   lookupOrRegisterAndStamp,
+  stampReturningMemberAction,
   redeemVoucherAction,
   switchAccountAction,
 } from '@/app/actions/loyalty';
+import PinBottomSheet from './PinBottomSheet';
+import GoldenVoucherCard from './GoldenVoucherCard';
+import MiniConfetti from './MiniConfetti';
 
 interface CustomerLoyaltyCardProps {
   slug: string;
-  program: LoyaltyProgram;
-  initialMember: LoyaltyMember | null;
+  program: PublicLoyaltyProgram;
+  initialMember: PublicLoyaltyMember | null;
   initialActiveVoucher: LoyaltyVoucher | null;
   initialCooldown: boolean;
   remainingHours: number;
@@ -29,468 +37,473 @@ export default function CustomerLoyaltyCard({
   remainingMinutes,
   tableCode,
 }: CustomerLoyaltyCardProps) {
-  const [member, setMember] = useState<LoyaltyMember | null>(initialMember);
-  const [activeVoucher, setActiveVoucher] = useState<LoyaltyVoucher | null>(initialActiveVoucher);
+  const [member, setMember] = useState<PublicLoyaltyMember | null>(initialMember);
+  const [activeVoucher, setActiveVoucher] = useState<LoyaltyVoucher | null>(
+    initialActiveVoucher
+  );
   const [isCooldown, setIsCooldown] = useState<boolean>(initialCooldown);
   const [remHours, setRemHours] = useState<number>(remainingHours);
   const [remMins, setRemMins] = useState<number>(remainingMinutes);
 
-  // Form states for registration / stamping
+  // S02 Registration / Lookup state
   const [firstName, setFirstName] = useState('');
   const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(true);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // Modal / UI states
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'stamp' | 'redeem'>('stamp');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // S03 PIN Bottom Sheet state
+  const [pinSheetOpen, setPinSheetOpen] = useState(false);
+  const [pinMode, setPinMode] = useState<'stamp' | 'redeem'>('stamp');
+  const [pinFlowOrigin, setPinFlowOrigin] = useState<'register' | 'returning'>('returning');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
+
+  // Feedback & Celebration
+  const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
+  const [confettiKey, setConfettiKey] = useState(0);
   const [isPending, startTransition] = useTransition();
 
-  const stampsTotal = program.stamps_required;
+  const stampsTotal = program.stamps_required || 6;
   const currentStamps = member?.current_stamps || 0;
+  const brandColor = program.primary_color || '#1E3A8A';
+  const isNearGoal = currentStamps >= Math.max(2, stampsTotal - 2) && currentStamps < stampsTotal;
 
-  // Handle registration / first stamp
-  const handleRegisterAndStamp = (e: React.FormEvent) => {
+  // Step 1 (New Customer): Validate S02 fields, then open S03 4-digit Cashier PIN sheet
+  const handleStartRegistration = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
+    setFormError(null);
+    setBannerSuccess(null);
 
-    if (!firstName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك الأول');
-      return;
-    }
     if (!phone.trim()) {
-      setErrorMsg('يرجى إدخال رقم الموبايل');
-      return;
-    }
-    if (!pin || pin.length !== 4) {
-      setErrorMsg('يرجى إدخال كود الكاشير المكون من 4 أرقام');
+      setFormError('يرجى إدخال رقم الموبايل لحفظ أختامك.');
       return;
     }
     if (!consentAccepted) {
-      setErrorMsg('يجب الموافقة على شروط الخصوصية للاستمرار');
+      setFormError('يرجى الموافقة على حفظ رقمك مشفراً لتسجيل الزيارات.');
       return;
     }
 
-    startTransition(async () => {
-      const res = await lookupOrRegisterAndStamp(
-        slug,
-        firstName,
-        phone,
-        pin,
-        tableCode,
-        consentAccepted
-      );
-
-      if (!res.success) {
-        setErrorMsg(res.error || 'حدث خطأ، يرجى المحاولة مرة أخرى');
-      } else {
-        if (res.member) setMember(res.member);
-        if (res.activeVoucher !== undefined) setActiveVoucher(res.activeVoucher || null);
-        if (res.status === 'cooldown') {
-          setIsCooldown(true);
-          setRemHours(res.remainingHours || 0);
-          setRemMins(res.remainingMinutes || 0);
-        } else {
-          setIsCooldown(false);
-          setSuccessMsg('تم تسجيل زيارتك بنجاح! 🎉');
-        }
-        setPin('');
-      }
-    });
+    setPinMode('stamp');
+    setPinFlowOrigin('register');
+    setPinError(null);
+    setPinSheetOpen(true);
   };
 
-  // Handle stamping via Modal for returning member
-  const handleStampWithPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (!pin || pin.length !== 4) {
-      setErrorMsg('يرجى إدخال كود الكاشير المكون من 4 أرقام');
-      return;
-    }
+  // Triggered automatically when 4th digit is typed in PinBottomSheet
+  const handleCompletePin = (enteredPin: string) => {
+    setPinError(null);
 
     startTransition(async () => {
-      // Use member's stored phone or recover
-      const res = await lookupOrRegisterAndStamp(
-        slug,
-        member?.first_name || 'صديق المطعم',
-        member ? `01${member.phone_last4}` : '', // fallback
-        pin,
-        tableCode,
-        true
-      );
-
-      if (!res.success) {
-        setErrorMsg(res.error || 'الكود غير صحيح أو حدث خطأ');
-      } else {
-        if (res.member) setMember(res.member);
-        if (res.activeVoucher !== undefined) setActiveVoucher(res.activeVoucher || null);
-        if (res.status === 'cooldown') {
-          setIsCooldown(true);
-          setRemHours(res.remainingHours || 0);
-          setRemMins(res.remainingMinutes || 0);
-        } else {
-          setIsCooldown(false);
-          setSuccessMsg('تم إضافة ختم اليوم بنجاح! 🔥');
+      if (pinMode === 'redeem' && activeVoucher) {
+        const res = await redeemVoucherAction(slug, activeVoucher.id, enteredPin, tableCode);
+        if (!res.success) {
+          setPinError(res.error || 'الكود غير صحيح، راجع الكاشير وجرب تاني');
+          setShakeKey((k) => k + 1);
+          return;
         }
-        setShowPinModal(false);
-        setPin('');
-      }
-    });
-  };
 
-  // Handle voucher redemption
-  const handleRedeemVoucher = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (!activeVoucher) return;
-    if (!pin || pin.length !== 4) {
-      setErrorMsg('يرجى إدخال كود الكاشير المكون من 4 أرقام لتأكيد الاستبدال');
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await redeemVoucherAction(slug, activeVoucher.id, pin, tableCode);
-      if (!res.success) {
-        setErrorMsg(res.error || 'فشل استبدال القسيمة');
-      } else {
-        setSuccessMsg('تم تسليم الهدية بنجاح ✅ — بدأت دورتك الجديدة!');
-        if (res.member) setMember(res.member);
+        if (res.member !== undefined) setMember(res.member);
         setActiveVoucher(null);
-        setShowPinModal(false);
-        setPin('');
+        setIsCooldown(res.status === 'cooldown');
+        setRemHours(res.remainingHours || 0);
+        setRemMins(res.remainingMinutes || 0);
+        setPinSheetOpen(false);
+        setBannerSuccess('تم تسليم الهدية بنجاح ✅ — بدأت دورتك الجديدة!');
+        setConfettiKey((k) => k + 1);
+        return;
       }
+
+      // Stamp flow (new registration OR returning cookie session)
+      const res =
+        pinFlowOrigin === 'register' || !member
+          ? await lookupOrRegisterAndStamp(
+              slug,
+              firstName,
+              phone,
+              enteredPin,
+              tableCode,
+              consentAccepted
+            )
+          : await stampReturningMemberAction(slug, enteredPin, tableCode);
+
+      if (!res.success) {
+        setPinError(res.error || 'الكود غير صحيح، راجع الكاشير وجرب تاني');
+        setShakeKey((k) => k + 1);
+        return;
+      }
+
+      if (res.member) setMember(res.member);
+      if (res.activeVoucher !== undefined) setActiveVoucher(res.activeVoucher || null);
+
+      if (res.status === 'cooldown') {
+        setIsCooldown(true);
+        setRemHours(res.remainingHours || 0);
+        setRemMins(res.remainingMinutes || 0);
+        setBannerSuccess(null);
+      } else if (res.status === 'voucher_unlocked' || res.status === 'active_voucher') {
+        setIsCooldown(false);
+        setBannerSuccess('مبروك! وصلت للزيارة السادسة وفتحت قسيمة وجبتك المجانية 🎉');
+        setConfettiKey((k) => k + 1);
+      } else {
+        setIsCooldown(false);
+        setBannerSuccess('تم تسجيل زيارتك وإضافة ختم اليوم بنجاح! 🎉');
+        setConfettiKey((k) => k + 1);
+      }
+
+      setPinSheetOpen(false);
     });
   };
 
-  // Switch account / reset session
   const handleSwitchAccount = () => {
     startTransition(async () => {
       await switchAccountAction(slug);
       setMember(null);
       setActiveVoucher(null);
       setIsCooldown(false);
+      setBannerSuccess(null);
+      setFormError(null);
       setFirstName('');
       setPhone('');
-      setPin('');
     });
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center py-4 px-2 sm:px-4 font-sans" dir="rtl">
-      <div className="w-full max-w-[430px] bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 flex flex-col">
-        
-        {/* Header / Brand Hero */}
-        <div 
-          className="p-6 text-white text-center relative"
-          style={{ backgroundColor: program.primary_color || '#1E3A8A' }}
+    <div
+      className="min-h-screen bg-slate-100 flex items-start sm:items-center justify-center py-3 px-2.5 sm:p-4"
+      dir="rtl"
+    >
+      <MiniConfetti triggerKey={confettiKey} />
+
+      <div className="w-full max-w-[430px] bg-white rounded-[2rem] shadow-xl border border-slate-200/80 overflow-hidden flex flex-col">
+        {/* Restaurant Hero Header */}
+        <div
+          className="px-6 pt-7 pb-6 text-white text-center relative overflow-hidden"
+          style={{ backgroundColor: brandColor }}
         >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-12 -left-12 w-36 h-36 rounded-full bg-white/10 blur-2xl"
+          />
+
           {tableCode && (
-            <span className="absolute top-3 left-4 bg-white/20 backdrop-blur-md text-xs px-2.5 py-1 rounded-full font-mono">
+            <span className="inline-block mb-2 bg-black/25 border border-white/15 backdrop-blur-md text-[11px] font-bold px-3 py-0.5 rounded-full">
               طاولة #{tableCode}
             </span>
           )}
+
+          {program.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={program.logo_url}
+              alt={program.business_name}
+              className="w-14 h-14 rounded-2xl object-cover mx-auto mb-2.5 border-2 border-white/30 bg-white"
+            />
+          ) : (
+            <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center mx-auto mb-2.5 text-2xl">
+              🍽️
+            </div>
+          )}
+
           <h1 className="text-2xl font-black tracking-tight mb-1">{program.business_name}</h1>
-          <p className="text-xs text-white/90 font-medium">
-            {member ? `منور يا ${member.first_name} 👋` : `«اجمع ${stampsTotal - 1} زيارات.. والسادسة علينا مجاناً!»`}
-          </p>
+
+          {member ? (
+            <p className="text-xs sm:text-sm text-white/95 font-bold">
+              منور يا {member.first_name} 👋 • زيارتك رقم {currentStamps} من {stampsTotal}
+            </p>
+          ) : (
+            <span className="inline-block mt-1 bg-white/15 border border-white/20 text-white text-xs font-extrabold px-3.5 py-1 rounded-full">
+              «اجمع {stampsTotal - 1} زيارات.. والسادسة علينا مجاناً!»
+            </span>
+          )}
         </div>
 
-        {/* Main Content Area */}
-        <div className="p-5 flex-1 flex flex-col gap-5">
-
-          {successMsg && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold text-center animate-pulse">
-              {successMsg}
+        {/* Main Card Body */}
+        <div className="p-5 flex-1 flex flex-col gap-4">
+          {bannerSuccess && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-extrabold text-center animate-loyalty-pop">
+              {bannerSuccess}
             </div>
           )}
 
-          {errorMsg && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-semibold text-center">
-              {errorMsg}
-            </div>
-          )}
-
-          {/* STATE 1: MEMBER LOGGED IN / REGISTERED */}
           {member ? (
-            <div className="flex flex-col gap-5">
-              
-              {/* Status Banner / Goal Gradient */}
-              <div className="bg-gradient-to-l from-amber-500/10 via-amber-400/5 to-amber-500/10 border border-amber-200/60 rounded-2xl p-4 text-center">
-                <div className="text-xs font-bold text-amber-800 mb-1">
-                  زيارتك رقم {currentStamps} من {stampsTotal}
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  {currentStamps === stampsTotal - 1
-                    ? '«خطوة واحدة وتاكل على حسابنا! 🔥»'
-                    : currentStamps >= stampsTotal
-                    ? '«مبروك! استمتع بوجبتك المجانية 🎉»'
-                    : `«فاضل لك ${stampsTotal - currentStamps} زيارات وتوصل للهدية!»`}
-                </p>
-              </div>
+            /* ================= RETURNING / ACTIVE MEMBER VIEW (S04, S05, S07) ================= */
+            <div className="flex flex-col gap-4">
+              {/* S07 Golden 6th-Visit Voucher when active */}
+              {activeVoucher && activeVoucher.status === 'active' && (
+                <GoldenVoucherCard
+                  firstName={member.first_name}
+                  voucher={activeVoucher}
+                  rewardTerms={program.reward_terms}
+                  onRequestRedeem={() => {
+                    setPinMode('redeem');
+                    setPinFlowOrigin('returning');
+                    setPinError(null);
+                    setPinSheetOpen(true);
+                  }}
+                />
+              )}
 
-              {/* Stamp Grid (3x2) */}
+              {/* S05 Friendly Cooldown State */}
+              {isCooldown && !activeVoucher && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                  <div className="text-emerald-800 font-black text-sm mb-1">
+                    ✅ زيارتك النهارده اتسجلت بالفعل!
+                  </div>
+                  <p className="text-xs text-emerald-700 leading-relaxed">
+                    استمتع بوجبتك، تقدر تختم زيارتك الجاية بعد{' '}
+                    <span className="font-black">{remHours} ساعة</span> و{' '}
+                    <span className="font-black">{remMins} دقيقة</span>.
+                  </p>
+                </div>
+              )}
+
+              {/* Goal-Gradient Motivation Banner (Stamps 4 & 5) */}
+              {!activeVoucher && (
+                <div
+                  className={`rounded-2xl p-3.5 text-center border transition ${
+                    isNearGoal
+                      ? 'bg-gradient-to-l from-amber-50 via-yellow-50 to-amber-50 border-amber-300 shadow-sm'
+                      : 'bg-slate-50 border-slate-200/70'
+                  }`}
+                >
+                  <p
+                    className={`text-xs font-extrabold ${
+                      isNearGoal ? 'text-amber-900' : 'text-slate-700'
+                    }`}
+                  >
+                    {currentStamps === stampsTotal - 1
+                      ? '«خطوة واحدة وتاكل على حسابنا! 🔥»'
+                      : currentStamps === stampsTotal - 2
+                      ? '«قربت جداً! فاضلك زيارتين بس على الوجبة المجانية ✨»'
+                      : currentStamps === 0
+                      ? '«دورة ولاء جديدة! ابدأ بختم زيارتك اليوم 🚀»'
+                      : `«فاضلك ${stampsTotal - currentStamps} زيارات على ${program.reward_title}»`}
+                  </p>
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden mt-2.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        isNearGoal ? 'bg-gradient-to-l from-amber-500 to-yellow-400' : ''
+                      }`}
+                      style={{
+                        width: `${Math.min(100, Math.round((currentStamps / stampsTotal) * 100))}%`,
+                        backgroundColor: isNearGoal ? undefined : brandColor,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 6-Stamp Interactive Grid (3x2 on mobile) */}
               <div className="grid grid-cols-3 gap-3">
                 {Array.from({ length: stampsTotal }).map((_, idx) => {
-                  const stampNum = idx + 1;
-                  const isFilled = stampNum <= currentStamps;
-                  const isLast = stampNum === stampsTotal;
+                  const num = idx + 1;
+                  const filled = num <= currentStamps;
+                  const isFinalGift = num === stampsTotal;
 
                   return (
                     <div
-                      key={idx}
-                      className={`h-24 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${
-                        isFilled
-                          ? isLast
-                            ? 'bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-white shadow-md shadow-amber-500/20'
-                            : 'bg-blue-50/80 border-blue-200 text-blue-600'
-                          : 'bg-slate-50 border-slate-200/80 text-slate-300 border-dashed'
+                      key={num}
+                      className={`min-h-[92px] rounded-2xl border-2 flex flex-col items-center justify-center p-2 transition-all ${
+                        filled
+                          ? isFinalGift
+                            ? 'bg-gradient-to-br from-amber-400 to-amber-600 border-amber-300 text-white shadow-md shadow-amber-500/20'
+                            : isNearGoal
+                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                            : 'bg-blue-50/90 border-blue-200 text-blue-700'
+                          : isFinalGift
+                          ? 'bg-amber-50/50 border-amber-300 border-dashed text-amber-700'
+                          : 'bg-slate-50 border-slate-200 border-dashed text-slate-400'
                       }`}
                     >
-                      {isFilled ? (
-                        isLast ? (
+                      {filled ? (
+                        isFinalGift ? (
                           <span className="text-2xl animate-bounce">🎁</span>
                         ) : (
-                          <span className="text-2xl font-bold">✓</span>
+                          <span
+                            className="w-9 h-9 rounded-full text-white flex items-center justify-center text-lg font-black shadow-sm"
+                            style={{ backgroundColor: isNearGoal ? '#d97706' : brandColor }}
+                          >
+                            ✓
+                          </span>
                         )
+                      ) : isFinalGift ? (
+                        <span className="text-2xl">🎁</span>
                       ) : (
-                        <span className="text-lg font-mono font-bold opacity-40">{stampNum}</span>
+                        <span className="font-mono text-lg font-black opacity-45">{num}</span>
                       )}
-                      <span className="text-[10px] font-semibold mt-1 opacity-80">
-                        {isLast ? 'هدية 🎁' : `ختم ${stampNum}`}
+
+                      <span className="text-[11px] font-extrabold mt-1.5">
+                        {isFinalGift ? 'مجاناً' : `زيارة ${num}`}
                       </span>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Active Voucher Banner (S07) */}
-              {activeVoucher && activeVoucher.status === 'active' && (
-                <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-white rounded-2xl p-5 shadow-lg shadow-amber-500/20 relative overflow-hidden">
-                  <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="bg-white/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                      قسيمة حية نشطة
-                    </span>
-                    <span className="font-mono text-xs font-bold tracking-widest bg-black/20 px-2 py-0.5 rounded">
-                      {activeVoucher.voucher_code}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-base mb-1">{activeVoucher.reward_title}</h3>
-                  <p className="text-xs text-white/90 mb-4">{program.reward_terms}</p>
-                  
-                  <button
-                    onClick={() => {
-                      setModalMode('redeem');
-                      setShowPinModal(true);
-                      setErrorMsg(null);
-                    }}
-                    className="w-full py-3 bg-white text-amber-900 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition text-sm flex items-center justify-center gap-2"
-                  >
-                    <span>تأكيد تسليم الهدية (للكاشير) 🔓</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Cooldown State (S05) or Stamp CTA */}
-              {isCooldown ? (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
-                  <div className="text-emerald-700 font-bold text-sm mb-1">✅ زيارتك النهارده اتسجلت بالفعل!</div>
-                  <p className="text-xs text-slate-600">
-                    تقدر تختم زيارتك الجاية بعد {remHours} ساعة و {remMins} دقيقة.
-                  </p>
-                </div>
-              ) : (
-                !activeVoucher && (
-                  <button
-                    onClick={() => {
-                      setModalMode('stamp');
-                      setShowPinModal(true);
-                      setErrorMsg(null);
-                    }}
-                    disabled={isPending}
-                    className="w-full py-4 text-white font-bold rounded-2xl shadow-lg transition transform active:scale-[0.98] flex items-center justify-center gap-2 text-base"
-                    style={{ backgroundColor: program.primary_color || '#1E3A8A' }}
-                  >
-                    <span>{isPending ? 'جاري التسجيل...' : 'اختم زيارتي اليوم 🏷️'}</span>
-                  </button>
-                )
-              )}
-
-              {/* Footer info & Switch Account */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-                <span>آخر زيارة: {member.last_visit_at ? new Date(member.last_visit_at).toLocaleDateString('ar-EG') : 'اليوم'}</span>
+              {/* Primary Returning Customer Stamp CTA (< 4s UX) */}
+              {!isCooldown && !activeVoucher && (
                 <button
-                  onClick={handleSwitchAccount}
-                  className="text-rose-600 hover:underline font-medium"
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    setPinMode('stamp');
+                    setPinFlowOrigin('returning');
+                    setPinError(null);
+                    setPinSheetOpen(true);
+                  }}
+                  style={{ backgroundColor: brandColor }}
+                  className="w-full min-h-[54px] py-4 text-white font-black rounded-2xl shadow-lg transition active:scale-[0.98] text-base flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  تبديل الرقم / ليس أنا؟
+                  <span>اختم زيارتي اليوم</span>
+                  <span>🏷️</span>
                 </button>
-              </div>
+              )}
 
-            </div>
-          ) : (
-
-            /* STATE 2: FIRST TIME VISITOR / UNREGISTERED (S02) */
-            <form onSubmit={handleRegisterAndStamp} className="flex flex-col gap-4">
-              
-              <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-4 text-center">
-                <p className="text-xs text-blue-900 font-medium">
-                  املأ بياناتك البسيطة وابدأ جمع الأختام فوراً بدون تحميل أي تطبيقات!
+              {/* Reward Terms & Footer */}
+              <div className="bg-slate-50 rounded-2xl p-3 text-center border border-slate-100">
+                <p className="text-[11px] font-bold text-slate-700 mb-0.5">
+                  🎁 المكافأة: {program.reward_title}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م • {program.reward_terms}
                 </p>
               </div>
 
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                <span>
+                  آخر زيارة:{' '}
+                  {member.last_visit_at
+                    ? new Date(member.last_visit_at).toLocaleDateString('ar-EG', {
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : 'اليوم'}
+                </span>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleSwitchAccount}
+                  className="text-rose-600 hover:underline font-bold cursor-pointer"
+                >
+                  تبديل الرقم / مش أنا؟
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ================= S02 FAST FIRST-VISIT REGISTRATION (<= 12s) ================= */
+            <form onSubmit={handleStartRegistration} className="flex flex-col gap-4">
+              {/* Compact Visual Preview of 6 Empty Stamp Circles */}
+              <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5">
+                <div className="flex items-center justify-between gap-1.5">
+                  {Array.from({ length: stampsTotal }).map((_, idx) => {
+                    const isGift = idx + 1 === stampsTotal;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex-1 h-11 rounded-xl border flex items-center justify-center text-xs font-black ${
+                          isGift
+                            ? 'bg-amber-50 border-amber-300 text-amber-700'
+                            : 'bg-white border-slate-200 border-dashed text-slate-400 font-mono'
+                        }`}
+                      >
+                        {isGift ? '🎁' : idx + 1}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-center text-slate-600 font-bold mt-2.5">
+                  🎁 مكافأتك: <span className="text-slate-900">{program.reward_title}</span>
+                </p>
+              </div>
+
+              {formError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold text-center animate-loyalty-shake">
+                  {formError}
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">اسمك الأول</label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                  اسمك الأول <span className="text-slate-400 font-normal">(اختياري لو مسجل قبل كده)</span>
+                </label>
                 <input
                   type="text"
-                  required
                   maxLength={30}
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="مثال: أحمد"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">رقم الموبايل المصري</label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                  رقم موبايلك
+                </label>
                 <input
                   type="tel"
                   required
                   dir="ltr"
                   inputMode="numeric"
+                  autoComplete="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01012345678"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition text-right font-mono"
+                  placeholder="01xxxxxxxxx"
+                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition text-left"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">عشان نحفظ أختامك حتى لو غيرت الموبايل</span>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  عشان نحفظلك أختامك حتى لو غيرت الموبايل
+                </span>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">كود الكاشير اليومي (4 أرقام)</label>
-                <input
-                  type="password"
-                  required
-                  maxLength={4}
-                  dir="ltr"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="••••"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition text-center font-mono tracking-widest text-lg"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">اسأل الكاشير عن كود اليوم</span>
-              </div>
-
-              {/* Consent Checkbox */}
-              <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+              {/* Egypt Law 151/2020 Privacy Consent */}
+              <label className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={consentAccepted}
                   onChange={(e) => setConsentAccepted(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                 />
-                <span className="text-[11px] text-slate-600 leading-tight">
-                  أوافق على حفظ رقمي مشفراً لتسجيل زياراتي في برنامج الولاء فقط (قانون حماية البيانات).
+                <span className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                  أوافق على حفظ رقمي مشفّراً لتسجيل زياراتي في برنامج الولاء فقط.
                 </span>
               </label>
 
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full py-4 text-white font-bold rounded-2xl shadow-lg transition transform active:scale-[0.98] flex items-center justify-center gap-2 text-base mt-2"
-                style={{ backgroundColor: program.primary_color || '#1E3A8A' }}
+                style={{ backgroundColor: brandColor }}
+                className="w-full min-h-[54px] py-4 text-white font-black rounded-2xl shadow-lg transition active:scale-[0.98] text-base flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>{isPending ? 'جاري التسجيل...' : 'ابدأ واختم زيارتك الأولى 🚀'}</span>
+                <span>ابدأ واختم زيارتك الأولى</span>
+                <span>🚀</span>
               </button>
 
-              <div className="text-center mt-2 text-[11px] text-slate-400 font-medium">
+              <p className="text-center text-[11px] text-slate-400 font-semibold">
                 تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م
-              </div>
-
+              </p>
             </form>
           )}
-
         </div>
 
-        {/* Footer micro-branding */}
-        <div className="py-3 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400">
-          نظام ولاء المطاعم الذكي • مدعوم بتقنية NFC & QR
+        {/* Clean Micro-Footer */}
+        <div className="py-2.5 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400 font-medium">
+          كارت الولاء الرقمي السريع • بدون تطبيقات
         </div>
-
       </div>
 
-      {/* PIN Verification Modal (S03) */}
-      {showPinModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" dir="rtl">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 relative">
-            <button
-              onClick={() => setShowPinModal(false)}
-              className="absolute top-4 left-4 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold"
-            >
-              ✕
-            </button>
-
-            <div className="text-center mb-5">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-xl font-bold">
-                {modalMode === 'redeem' ? '🔓' : '🏷️'}
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-1">
-                {modalMode === 'redeem' ? 'كود كاشير لتأكيد الهدية' : 'أدخل كود الكاشير اليومي'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {modalMode === 'redeem'
-                  ? 'اسأل الكاشير لإدخال كود التأكيد وصرف الوجبة المجانية'
-                  : 'اسأل الكاشير عن الكود المكون من 4 أرقام'}
-              </p>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold text-center">
-                {errorMsg}
-              </div>
-            )}
-
-            <form
-              onSubmit={modalMode === 'redeem' ? handleRedeemVoucher : handleStampWithPin}
-              className="flex flex-col gap-4"
-            >
-              <div>
-                <input
-                  type="password"
-                  required
-                  autoFocus
-                  maxLength={4}
-                  dir="ltr"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="••••"
-                  className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 text-center font-mono text-2xl tracking-widest focus:outline-none focus:border-blue-600 transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full py-3.5 text-white font-bold rounded-xl shadow-md transition text-sm flex items-center justify-center gap-2"
-                style={{ backgroundColor: program.primary_color || '#1E3A8A' }}
-              >
-                <span>{isPending ? 'جاري التحقق...' : 'تأكيد وإتمام'}</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* S03 Cashier PIN Verification Bottom Sheet */}
+      <PinBottomSheet
+        open={pinSheetOpen}
+        mode={pinMode}
+        primaryColor={brandColor}
+        isSubmitting={isPending}
+        errorMsg={pinError}
+        shakeKey={shakeKey}
+        onClose={() => setPinSheetOpen(false)}
+        onCompletePin={handleCompletePin}
+      />
     </div>
   );
 }

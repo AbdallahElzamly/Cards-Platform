@@ -1,48 +1,32 @@
-# 🚀 Loyalty MVP Deployment & Runbook Guide
-## دليل نشر وتشغيل نظام الولاء (NFC / QR)
+# 🚀 دليل النشر والتشغيل الكامل — نظام ولاء المطاعم (Cards Platform)
 
 ---
 
-### 1. Overview / نظرة عامة
-This document outlines the end-to-end production deployment and configuration steps for the zero-cost Restaurant NFC/QR Loyalty module (`cards-platform`), built with Next.js 15 (App Router, TypeScript, Tailwind CSS) and Supabase PostgreSQL.
+## 1. خطوة واحدة مهمة داخل Supabase SQL Editor
+افتح لوحة تحكم Supabase الخاصة بك (`zzcgpngyovrgglanfbxx`) ← **SQL Editor** ← نفّذ ملف [`supabase/FIX_SUPABASE_PERMISSIONS.sql`](./supabase/FIX_SUPABASE_PERMISSIONS.sql) (لإعطاء صلاحيات الجداول لدور السيرفر `service_role` و `authenticated` ومنع خطأ `42501 permission denied`).
+
+> **نصيحة للاختبار السريع:** من داخل Supabase Dashboard ← **Authentication** ← **Providers** ← **Email**، يمكنك إيقاف خيار **Confirm email** إذا أردت تسجيل حساب تاجر جديد والدخول فوراً دون انتظار رسالة تفعيل الإيميل.
 
 ---
 
-### 2. Environment Variables / متغيرات البيئة (`.env.local`)
-Never expose `SUPABASE_SERVICE_ROLE_KEY` or `LOYALTY_PEPPER` to client code.
+## 2. متغيرات البيئة المطلوبة على Vercel (`Settings → Environment Variables`)
+أضف المتغيرات الأربعة التالية مع تفعيلها لبيئات **Production** و **Preview** و **Development**:
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-LOYALTY_PEPPER=generate_64_char_hex_secret
-```
+| الاسم (Key) | الوصف | النوع |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | رابط مشروع Supabase (`https://....supabase.co`) | Config |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | المفتاح العام (`sb_publishable_...`) — *يدعم الكود أيضاً `NEXT_PUBLIC_SUPABASE_ANON_KEY`* | Config |
+| `SUPABASE_SERVICE_ROLE_KEY` | المفتاح السري للسيرفر (`sb_secret_...`) — **لا تضف له بادئة `NEXT_PUBLIC_` أبداً** | Secret |
+| `LOYALTY_PEPPER` | سر التشفير السداسي عشري (64 حرفاً) | Secret |
 
-Generate a secure pepper via Node.js:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+بعد حفظ المتغيرات في Vercel، اضغط **Deployments → Redeploy** على آخر عملية رفع ليتم تفعيل البناء الجديد.
 
 ---
 
-### 3. Supabase Database & RLS Setup / إعداد قاعدة البيانات وسياسات الأمان
-1. Open your Supabase Dashboard → SQL Editor.
-2. Run the migration script located at `supabase/migrations/20261125_loyalty_mvp.sql`.
-3. Verify that Row-Level Security (RLS) is **Enabled** on all 5 tables (`loyalty_programs`, `loyalty_members`, `loyalty_visits`, `loyalty_vouchers`, `loyalty_pin_attempts`).
-
----
-
-### 4. Vercel Deployment / النشر على Vercel
-1. Push your repository to GitHub.
-2. Import project into Vercel.
-3. Add environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `LOYALTY_PEPPER`) in Vercel Project Settings → Environment Variables.
-4. Deploy!
-
----
-
-### 5. NFC Card Programming / برمجة كروت NFC
-Program each restaurant table NFC chip (`NTAG215`) or QR code to point to:
-```text
-https://yourdomain.com/l/restaurant-slug?t=table_number
-```
-Example: `https://cards-platform.vercel.app/l/test-cafe?t=3`
+## 3. المسارات الجاهزة في النظام
+- **`/`**: الصفحة الرئيسية التعريفية.
+- **`/auth/login`**: تسجيل دخول / إنشاء حساب التاجر (عبر Server Actions آمنة بدون أخطاء CORS أو `Failed to fetch`).
+- **`/dashboard/loyalty`**: لوحة تحكم التاجر والكاشير (تدوير الكود اليومي، نسخ روابط NFC/QR للطاولات، الـ 4 مؤشرات الحية، الإعدادات، وسجل الزيارات).
+- **`/l/[slug]?t=[table]`**: بطاقة العميل التفاعلية السريعة (تسجيل أول زيارة، ختم الزيارات بالكوكي المشفرة، وقسيمة الزيارة السادسة الذهبية ذات الساعة الحية).
+- **`/q/[code]?t=[table]`**: بوابة التحويل الديناميكي بدون تخزين مؤقت (`HTTP 307` + `Cache-Control: no-store`).
+- **`/api/health`**: مسار فحص الجاهزية وإبقاء قاعدة البيانات نشطة (مع ملف `.github/workflows/supabase-keepalive.yml`).
