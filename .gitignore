@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+NEXT_PUBLIC_SUPABASE_URL=https://zzcgpngyovrgglanfbxx.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_oQBTmRWhtacHQ9GTZuQU2g_yb_7NIRs
+LOYALTY_PEPPER=a49224c3eb79884054a943a50b0fc276ef7258c57b5c82d2ab45ed1b8f1d90d3
