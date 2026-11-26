@@ -2,13 +2,7 @@
 
 import React from 'react';
 
-export default function MiniConfetti({
-  active,
-  triggerKey,
-}: {
-  active?: boolean;
-  triggerKey?: number;
-}) {
+const BALLOONS = [
   { left: '8%', size: '36px', color: '#f59e0b', duration: '6.5s', delay: '0s', drift: '22px', rot: '14deg', emoji: '🎈' },
   { left: '22%', size: '42px', color: '#ef4444', duration: '7.8s', delay: '1.2s', drift: '-20px', rot: '-10deg', emoji: '🎈' },
   { left: '38%', size: '34px', color: '#10b981', duration: '6.2s', delay: '2.5s', drift: '25px', rot: '16deg', emoji: '🎉' },
@@ -30,7 +24,13 @@ const CONFETTI_PIECES = [
   { left: '65%', bg: '#eab308', duration: '3.5s', delay: '2.0s', sway: '-28px', spin: '700deg', w: '9px', h: '14px' },
 ];
 
-export default function MiniConfetti({ active, triggerKey }: { active?: boolean; triggerKey?: number }) {
+export default function MiniConfetti({
+  active,
+  triggerKey,
+}: {
+  active?: boolean;
+  triggerKey?: number;
+}) {
   // If active is true (e.g. member is viewing their progress/remaining visits),
   // balloons and confetti continuously rise/fall.
   // If only triggerKey is passed, it behaves gracefully.
