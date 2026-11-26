@@ -592,7 +592,111 @@ export async function redeemVoucherAction(
 }
 
 /**
- * 5. Safely clear customer session cookie ("تبديل الرقم / مش أنا؟").
+ * 5. Instant Card Recovery by Phone Number (when customer clears cookies or switches phones).
+ * Restores the 365-day HttpOnly signed cookie & displays existing stamps/vouchers
+ * WITHOUT awarding a stamp or burning a voucher (Cashier PIN still required for stamping/redemption).
+ */
+export async function recoverMemberCardByPhoneAction(
+  slug: string,
+  rawPhone: string
+): Promise<LoyaltyActionResult & { notFoundInProgram?: boolean }> {
+  try {
+    if (!slug) {
+      return { success: false, error: 'رابط المطعم غير صالح.' };
+    }
+
+    const canonicalPhone = normalizeEgyptianPhone(rawPhone);
+    if (!canonicalPhone) {
+      return {
+        success: false,
+        error: 'رقم الموبايل غير صحيح، تأكد من إدخال رقم مصري مكون من 11 رقم (مثال: 01012345678).',
+      };
+    }
+
+    const admin = getSupabaseAdmin();
+    const { data: rawProgram } = await admin
+      .from('loyalty_programs')
+      .select(PUBLIC_PROGRAM_COLUMNS)
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (!rawProgram || !rawProgram.is_active) {
+      return { success: false, error: 'المطعم غير متاح حالياً.' };
+    }
+
+    // Rate-limit failed phone lookups per IP (max 8 misses per 15 mins) to prevent enumeration
+    const ipHash = await getHashedClientIp();
+    const lookupActorKey = `${ipHash}:recover`;
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    const { count: recentMisses } = await admin
+      .from('loyalty_pin_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('program_id', rawProgram.id)
+      .eq('actor_key', lookupActorKey)
+      .gte('attempted_at', fifteenMinsAgo);
+
+    if ((recentMisses || 0) >= 8) {
+      return {
+        success: false,
+        error: 'محاولات بحث كثيرة، يرجى الانتظار دقائق قليلة والمحاولة مرة أخرى.',
+      };
+    }
+
+    const phoneHash = hashPhone(canonicalPhone);
+    const { data: member } = await admin
+      .from('loyalty_members')
+      .select('*')
+      .eq('program_id', rawProgram.id)
+      .eq('phone_hash', phoneHash)
+      .maybeSingle();
+
+    if (!member) {
+      await admin.from('loyalty_pin_attempts').insert({
+        program_id: rawProgram.id,
+        actor_key: lookupActorKey,
+      });
+      return {
+        success: false,
+        notFoundInProgram: true,
+        error: 'لم نجد أختاماً سابقة بهذا الرقم في هذا المطعم. يمكنك البدء كعضو جديد وختم زيارتك الأولى!',
+      };
+    }
+
+    const { data: activeVoucher } = await admin
+      .from('loyalty_vouchers')
+      .select('*')
+      .eq('member_id', member.id)
+      .eq('program_id', rawProgram.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    const cooldown = calculateCooldown(member.last_visit_at, rawProgram.cooldown_hours);
+
+    await setSessionCookie(slug, member.id, rawProgram.id);
+    revalidatePath(`/l/${slug}`);
+
+    return {
+      success: true,
+      status: activeVoucher
+        ? 'active_voucher'
+        : cooldown.inCooldown
+        ? 'cooldown'
+        : 'ready',
+      remainingHours: cooldown.remainingHours,
+      remainingMinutes: cooldown.remainingMinutes,
+      member: toPublicMember(member),
+      program: toPublicProgram(rawProgram as PublicLoyaltyProgram),
+      activeVoucher: activeVoucher || null,
+    };
+  } catch (err) {
+    console.error('recoverMemberCardByPhoneAction error:', err);
+    return { success: false, error: 'تعذر استرجاع البطاقة حالياً، يرجى المحاولة مرة أخرى.' };
+  }
+}
+
+/**
+ * 6. Safely clear customer session cookie ("تبديل الرقم / مش أنا؟").
  */
 export async function switchAccountAction(slug: string): Promise<void> {
   const cookieStore = await cookies();

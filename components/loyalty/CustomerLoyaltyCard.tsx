@@ -10,6 +10,7 @@ import {
   lookupOrRegisterAndStamp,
   stampReturningMemberAction,
   redeemVoucherAction,
+  recoverMemberCardByPhoneAction,
   switchAccountAction,
 } from '@/app/actions/loyalty';
 import PinBottomSheet from './PinBottomSheet';
@@ -45,11 +46,13 @@ export default function CustomerLoyaltyCard({
   const [remHours, setRemHours] = useState<number>(remainingHours);
   const [remMins, setRemMins] = useState<number>(remainingMinutes);
 
-  // S02 Registration / Lookup state
+  // S02 Entry Mode ('new' first visit vs 'recover' returning without cookie)
+  const [entryMode, setEntryMode] = useState<'new' | 'recover'>('new');
   const [firstName, setFirstName] = useState('');
   const [phone, setPhone] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+  const [suggestNewTab, setSuggestNewTab] = useState(false);
 
   // S03 PIN Bottom Sheet state
   const [pinSheetOpen, setPinSheetOpen] = useState(false);
@@ -68,10 +71,11 @@ export default function CustomerLoyaltyCard({
   const brandColor = program.primary_color || '#1E3A8A';
   const isNearGoal = currentStamps >= Math.max(2, stampsTotal - 2) && currentStamps < stampsTotal;
 
-  // Step 1 (New Customer): Validate S02 fields, then open S03 4-digit Cashier PIN sheet
+  // Step 1A (New Customer): Validate S02 fields, then open S03 4-digit Cashier PIN sheet
   const handleStartRegistration = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    setSuggestNewTab(false);
     setBannerSuccess(null);
 
     if (!phone.trim()) {
@@ -87,6 +91,37 @@ export default function CustomerLoyaltyCard({
     setPinFlowOrigin('register');
     setPinError(null);
     setPinSheetOpen(true);
+  };
+
+  // Step 1B (Returning Customer after clearing cookies / switching phone): Instant Phone Recovery
+  const handleRecoverCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setSuggestNewTab(false);
+    setBannerSuccess(null);
+
+    if (!phone.trim()) {
+      setFormError('يرجى إدخال رقم الموبايل المسجل سابقاً.');
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await recoverMemberCardByPhoneAction(slug, phone);
+      if (!res.success || !res.member) {
+        setFormError(res.error || 'لم نتمكن من العثور على بطاقة مسجلة بهذا الرقم.');
+        if (res.notFoundInProgram) {
+          setSuggestNewTab(true);
+        }
+        return;
+      }
+
+      setMember(res.member);
+      setActiveVoucher(res.activeVoucher || null);
+      setIsCooldown(res.status === 'cooldown');
+      setRemHours(res.remainingHours || 0);
+      setRemMins(res.remainingMinutes || 0);
+      setBannerSuccess(`أهلاً بعودتك يا ${res.member.first_name}! تم استرجاع بطاقتك وأختامك بنجاح ✅`);
+    });
   };
 
   // Triggered automatically when 4th digit is typed in PinBottomSheet
@@ -162,6 +197,7 @@ export default function CustomerLoyaltyCard({
       setIsCooldown(false);
       setBannerSuccess(null);
       setFormError(null);
+      setSuggestNewTab(false);
       setFirstName('');
       setPhone('');
     });
@@ -391,99 +427,205 @@ export default function CustomerLoyaltyCard({
               </div>
             </div>
           ) : (
-            /* ================= S02 FAST FIRST-VISIT REGISTRATION (<= 12s) ================= */
-            <form onSubmit={handleStartRegistration} className="flex flex-col gap-4">
-              {/* Compact Visual Preview of 6 Empty Stamp Circles */}
-              <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5">
-                <div className="flex items-center justify-between gap-1.5">
-                  {Array.from({ length: stampsTotal }).map((_, idx) => {
-                    const isGift = idx + 1 === stampsTotal;
-                    return (
-                      <div
-                        key={idx}
-                        className={`flex-1 h-11 rounded-xl border flex items-center justify-center text-xs font-black ${
-                          isGift
-                            ? 'bg-amber-50 border-amber-300 text-amber-700'
-                            : 'bg-white border-slate-200 border-dashed text-slate-400 font-mono'
-                        }`}
-                      >
-                        {isGift ? '🎁' : idx + 1}
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-center text-slate-600 font-bold mt-2.5">
-                  🎁 مكافأتك: <span className="text-slate-900">{program.reward_title}</span>
-                </p>
+            /* ================= S02 ENTRY: NEW CUSTOMER OR INSTANT CARD RECOVERY ================= */
+            <div className="flex flex-col gap-4">
+              {/* 2-Tab Mode Switcher: New Customer vs Recover Saved Stamps */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEntryMode('new');
+                    setFormError(null);
+                    setSuggestNewTab(false);
+                  }}
+                  className={`py-2.5 text-xs font-extrabold rounded-xl transition cursor-pointer ${
+                    entryMode === 'new'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  زيارة أولى / عضو جديد
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEntryMode('recover');
+                    setFormError(null);
+                    setSuggestNewTab(false);
+                  }}
+                  className={`py-2.5 text-xs font-extrabold rounded-xl transition cursor-pointer ${
+                    entryMode === 'recover'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  عندي أختام سابقة 🔄
+                </button>
               </div>
 
-              {formError && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold text-center animate-loyalty-shake">
-                  {formError}
-                </div>
+              {entryMode === 'recover' ? (
+                /* ---------- INSTANT PHONE RECOVERY FORM (NO PIN NEEDED TO VIEW CARD) ---------- */
+                <form onSubmit={handleRecoverCard} className="flex flex-col gap-4">
+                  <div className="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-3.5 text-center">
+                    <p className="text-xs font-extrabold text-blue-900 mb-0.5">
+                      مسحت الكوكيز أو غيرت موبايلك؟ ولا يهمك! 💾
+                    </p>
+                    <p className="text-[11px] text-blue-700 leading-relaxed">
+                      اكتب رقم موبايلك المسجل وهنفتحلك كارتك وكل أختامك وقسائمك المحفوظة فوراً بدون كود كاشير.
+                    </p>
+                  </div>
+
+                  {formError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold text-center animate-loyalty-shake">
+                      <p>{formError}</p>
+                      {suggestNewTab && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEntryMode('new');
+                            setFormError(null);
+                            setSuggestNewTab(false);
+                          }}
+                          className="mt-2 inline-block px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-[11px] font-extrabold cursor-pointer"
+                        >
+                          سجّل الآن كعضو جديد بهذا الرقم ←
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                      رقم موبايلك المسجل
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      dir="ltr"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="01xxxxxxxxx"
+                      className="w-full min-h-[50px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition text-left"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    style={{ backgroundColor: brandColor }}
+                    className="w-full min-h-[54px] py-4 text-white font-black rounded-2xl shadow-lg transition active:scale-[0.98] disabled:opacity-60 text-base flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isPending ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>جاري استرجاع أختامك...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>استرجع كرتي وأختامي الآن</span>
+                        <span>⚡</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                /* ---------- S02 FAST FIRST-VISIT REGISTRATION (<= 12s) ---------- */
+                <form onSubmit={handleStartRegistration} className="flex flex-col gap-4">
+                  {/* Compact Visual Preview of 6 Empty Stamp Circles */}
+                  <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3.5">
+                    <div className="flex items-center justify-between gap-1.5">
+                      {Array.from({ length: stampsTotal }).map((_, idx) => {
+                        const isGift = idx + 1 === stampsTotal;
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex-1 h-11 rounded-xl border flex items-center justify-center text-xs font-black ${
+                              isGift
+                                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                : 'bg-white border-slate-200 border-dashed text-slate-400 font-mono'
+                            }`}
+                          >
+                            {isGift ? '🎁' : idx + 1}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-center text-slate-600 font-bold mt-2.5">
+                      🎁 مكافأتك: <span className="text-slate-900">{program.reward_title}</span>
+                    </p>
+                  </div>
+
+                  {formError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold text-center animate-loyalty-shake">
+                      {formError}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                      اسمك الأول
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="مثال: أحمد"
+                      className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                      رقم موبايلك
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      dir="ltr"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="01xxxxxxxxx"
+                      className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition text-left"
+                    />
+                    <span className="text-[11px] text-slate-500 mt-1 block">
+                      عشان نحفظلك أختامك حتى لو مسحت الكوكيز أو غيرت الموبايل
+                    </span>
+                  </div>
+
+                  {/* Egypt Law 151/2020 Privacy Consent */}
+                  <label className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consentAccepted}
+                      onChange={(e) => setConsentAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                    <span className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                      أوافق على حفظ رقمي مشفّراً لتسجيل زياراتي في برنامج الولاء فقط.
+                    </span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    style={{ backgroundColor: brandColor }}
+                    className="w-full min-h-[54px] py-4 text-white font-black rounded-2xl shadow-lg transition active:scale-[0.98] text-base flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>ابدأ واختم زيارتك الأولى</span>
+                    <span>🚀</span>
+                  </button>
+
+                  <p className="text-center text-[11px] text-slate-400 font-semibold">
+                    تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م
+                  </p>
+                </form>
               )}
-
-              <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                  اسمك الأول <span className="text-slate-400 font-normal">(اختياري لو مسجل قبل كده)</span>
-                </label>
-                <input
-                  type="text"
-                  maxLength={30}
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="مثال: أحمد"
-                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                  رقم موبايلك
-                </label>
-                <input
-                  type="tel"
-                  required
-                  dir="ltr"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01xxxxxxxxx"
-                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition text-left"
-                />
-                <span className="text-[11px] text-slate-500 mt-1 block">
-                  عشان نحفظلك أختامك حتى لو غيرت الموبايل
-                </span>
-              </div>
-
-              {/* Egypt Law 151/2020 Privacy Consent */}
-              <label className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={consentAccepted}
-                  onChange={(e) => setConsentAccepted(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                />
-                <span className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                  أوافق على حفظ رقمي مشفّراً لتسجيل زياراتي في برنامج الولاء فقط.
-                </span>
-              </label>
-
-              <button
-                type="submit"
-                disabled={isPending}
-                style={{ backgroundColor: brandColor }}
-                className="w-full min-h-[54px] py-4 text-white font-black rounded-2xl shadow-lg transition active:scale-[0.98] text-base flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>ابدأ واختم زيارتك الأولى</span>
-                <span>🚀</span>
-              </button>
-
-              <p className="text-center text-[11px] text-slate-400 font-semibold">
-                تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م
-              </p>
-            </form>
+            </div>
           )}
         </div>
 
