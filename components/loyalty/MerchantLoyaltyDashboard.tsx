@@ -459,7 +459,7 @@ export default function MerchantLoyaltyDashboard({
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold">
                     <th className="pb-3 pr-2">العميل</th>
-                    <th className="pb-3 px-2">آخر 4 أرقام</th>
+                    <th className="pb-3 px-2">رقم الموبايل (للتسويق وإعادة الاستهداف)</th>
                     <th className="pb-3 px-2">العملية</th>
                     <th className="pb-3 px-2">الطاولة</th>
                     <th className="pb-3 pl-2 text-left">التوقيت</th>
@@ -471,8 +471,36 @@ export default function MerchantLoyaltyDashboard({
                       <td className="py-3.5 pr-2 font-extrabold text-slate-900">
                         {item.member_name}
                       </td>
-                      <td className="py-3.5 px-2 font-mono text-slate-500" dir="ltr">
-                        ••••{item.phone_last4}
+                      <td className="py-3.5 px-2">
+                        {item.phone ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-slate-800 text-xs" dir="ltr">
+                              {item.phone}
+                            </span>
+                            <a
+                              href={`https://wa.me/2${item.phone.replace(/^0/, '')}?text=${encodeURIComponent(
+                                `أهلاً يا ${item.member_name} من مطعم ${program.business_name} 🍽️، وحشتنا وليك هدية خاصة ومكافأة جاهزة عندنا في زيارتك الجاية!`
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="إرسال رسالة واتساب للعميل"
+                              className="px-2 py-0.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-md text-[10px] font-black transition"
+                            >
+                              واتساب 💬
+                            </a>
+                            <a
+                              href={`tel:${item.phone}`}
+                              title="اتصال هاتفي بالعميل"
+                              className="px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-md text-[10px] font-black transition"
+                            >
+                              اتصال 📞
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-slate-500" dir="ltr">
+                            ••••{item.phone_last4}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-2">
                         {item.type === 'redemption' ? (

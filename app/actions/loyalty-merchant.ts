@@ -18,6 +18,7 @@ export interface RecentActivityItem {
   type: 'visit' | 'redemption';
   member_name: string;
   phone_last4: string;
+  phone?: string | null;
   stamp_number_after?: number;
   voucher_code?: string;
   table_code: string | null;
@@ -248,7 +249,8 @@ export async function getMerchantLoyaltyDashboard(
           created_at,
           loyalty_members (
             first_name,
-            phone_last4
+            phone_last4,
+            phone
           )
         `
         )
@@ -265,7 +267,8 @@ export async function getMerchantLoyaltyDashboard(
           redeemed_by_table,
           loyalty_members (
             first_name,
-            phone_last4
+            phone_last4,
+            phone
           )
         `
         )
@@ -277,8 +280,8 @@ export async function getMerchantLoyaltyDashboard(
     ]);
 
     type JoinedMemberRef =
-      | { first_name?: string; phone_last4?: string }
-      | Array<{ first_name?: string; phone_last4?: string }>
+      | { first_name?: string; phone_last4?: string; phone?: string | null }
+      | Array<{ first_name?: string; phone_last4?: string; phone?: string | null }>
       | null;
 
     interface RawVisitRow {
@@ -304,6 +307,7 @@ export async function getMerchantLoyaltyDashboard(
         type: 'visit',
         member_name: m?.first_name || 'عميل',
         phone_last4: m?.phone_last4 || '0000',
+        phone: m?.phone || null,
         stamp_number_after: v.stamp_number_after,
         table_code: v.table_code,
         created_at: v.created_at,
@@ -319,6 +323,7 @@ export async function getMerchantLoyaltyDashboard(
         type: 'redemption',
         member_name: m?.first_name || 'عميل',
         phone_last4: m?.phone_last4 || '0000',
+        phone: m?.phone || null,
         voucher_code: r.voucher_code,
         table_code: r.redeemed_by_table,
         created_at: r.redeemed_at,

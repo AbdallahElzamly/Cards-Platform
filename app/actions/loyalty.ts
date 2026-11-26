@@ -340,6 +340,7 @@ export async function lookupOrRegisterAndStamp(
           first_name: cleanName || 'ضيفنا العزيز',
           phone_hash: phoneHash,
           phone_last4: phoneLast4,
+          phone: canonicalPhone,
           current_stamps: 0,
           total_visits: 0,
           consent_accepted_at: new Date().toISOString(),
@@ -352,14 +353,21 @@ export async function lookupOrRegisterAndStamp(
         return { success: false, error: 'حدث خطأ أثناء إنشاء بطاقتك، يرجى المحاولة مرة أخرى.' };
       }
       member = createdMember;
-    } else if (cleanName && cleanName !== member.first_name) {
-      const { data: renamed } = await admin
-        .from('loyalty_members')
-        .update({ first_name: cleanName })
-        .eq('id', member.id)
-        .select('*')
-        .single();
-      if (renamed) member = renamed;
+    } else {
+      // Update phone or first_name if changed
+      const updates: { first_name?: string; phone?: string } = {};
+      if (cleanName && cleanName !== member.first_name) updates.first_name = cleanName;
+      if (!member.phone || member.phone !== canonicalPhone) updates.phone = canonicalPhone;
+
+      if (Object.keys(updates).length > 0) {
+        const { data: updatedRec } = await admin
+          .from('loyalty_members')
+          .update(updates)
+          .eq('id', member.id)
+          .select('*')
+          .single();
+        if (updatedRec) member = updatedRec;
+      }
     }
 
     return await applyStampOrReturnState(program, member, slug, tableCode, ipHash);

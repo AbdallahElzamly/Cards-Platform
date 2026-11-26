@@ -1,46 +1,81 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
-const PIECES = [
-  { left: '12%', bg: '#f59e0b', delay: '0ms', duration: '950ms' },
-  { left: '24%', bg: '#10b981', delay: '60ms', duration: '1100ms' },
-  { left: '36%', bg: '#3b82f6', delay: '20ms', duration: '1000ms' },
-  { left: '48%', bg: '#ec4899', delay: '90ms', duration: '1150ms' },
-  { left: '60%', bg: '#f59e0b', delay: '40ms', duration: '980ms' },
-  { left: '72%', bg: '#8b5cf6', delay: '80ms', duration: '1080ms' },
-  { left: '84%', bg: '#10b981', delay: '30ms', duration: '1020ms' },
-  { left: '18%', bg: '#ef4444', delay: '120ms', duration: '1120ms' },
-  { left: '54%', bg: '#06b6d4', delay: '140ms', duration: '1050ms' },
-  { left: '78%', bg: '#eab308', delay: '100ms', duration: '990ms' },
+export default function MiniConfetti({
+  active,
+  triggerKey,
+}: {
+  active?: boolean;
+  triggerKey?: number;
+}) {
+  { left: '8%', size: '36px', color: '#f59e0b', duration: '6.5s', delay: '0s', drift: '22px', rot: '14deg', emoji: '🎈' },
+  { left: '22%', size: '42px', color: '#ef4444', duration: '7.8s', delay: '1.2s', drift: '-20px', rot: '-10deg', emoji: '🎈' },
+  { left: '38%', size: '34px', color: '#10b981', duration: '6.2s', delay: '2.5s', drift: '25px', rot: '16deg', emoji: '🎉' },
+  { left: '54%', size: '40px', color: '#3b82f6', duration: '7.1s', delay: '0.8s', drift: '-18px', rot: '-12deg', emoji: '🎈' },
+  { left: '70%', size: '44px', color: '#8b5cf6', duration: '8.2s', delay: '2.1s', drift: '20px', rot: '15deg', emoji: '🎈' },
+  { left: '85%', size: '38px', color: '#ec4899', duration: '6.9s', delay: '1.6s', drift: '-24px', rot: '-14deg', emoji: '✨' },
 ];
 
-export default function MiniConfetti({ triggerKey }: { triggerKey: number }) {
-  const [dismissedKey, setDismissedKey] = useState(0);
+const CONFETTI_PIECES = [
+  { left: '5%', bg: '#f59e0b', duration: '3.8s', delay: '0s', sway: '25px', spin: '720deg', w: '8px', h: '12px' },
+  { left: '15%', bg: '#10b981', duration: '4.2s', delay: '0.6s', sway: '-30px', spin: '540deg', w: '10px', h: '10px' },
+  { left: '28%', bg: '#3b82f6', duration: '3.6s', delay: '1.4s', sway: '20px', spin: '680deg', w: '7px', h: '14px' },
+  { left: '42%', bg: '#ec4899', duration: '4.5s', delay: '0.2s', sway: '-25px', spin: '800deg', w: '9px', h: '12px' },
+  { left: '58%', bg: '#f59e0b', duration: '3.9s', delay: '1.8s', sway: '35px', spin: '620deg', w: '8px', h: '11px' },
+  { left: '72%', bg: '#8b5cf6', duration: '4.1s', delay: '0.9s', sway: '-22px', spin: '750deg', w: '11px', h: '9px' },
+  { left: '84%', bg: '#10b981', duration: '3.7s', delay: '1.2s', sway: '28px', spin: '590deg', w: '8px', h: '13px' },
+  { left: '92%', bg: '#ef4444', duration: '4.4s', delay: '0.4s', sway: '-35px', spin: '820deg', w: '10px', h: '10px' },
+  { left: '20%', bg: '#06b6d4', duration: '4.0s', delay: '2.2s', sway: '18px', spin: '640deg', w: '7px', h: '12px' },
+  { left: '65%', bg: '#eab308', duration: '3.5s', delay: '2.0s', sway: '-28px', spin: '700deg', w: '9px', h: '14px' },
+];
 
-  useEffect(() => {
-    if (!triggerKey) return;
-    const timer = setTimeout(() => setDismissedKey(triggerKey), 1300);
-    return () => clearTimeout(timer);
-  }, [triggerKey]);
+export default function MiniConfetti({ active, triggerKey }: { active?: boolean; triggerKey?: number }) {
+  // If active is true (e.g. member is viewing their progress/remaining visits),
+  // balloons and confetti continuously rise/fall.
+  // If only triggerKey is passed, it behaves gracefully.
+  const isContinuous = active ?? (triggerKey !== undefined && triggerKey > 0);
 
-  const visible = triggerKey > 0 && dismissedKey !== triggerKey;
-  if (!visible) return null;
+  if (!isContinuous) return null;
 
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-x-0 top-12 z-50 mx-auto max-w-[430px] h-44 overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-40 overflow-hidden select-none"
     >
-      {PIECES.map((p, idx) => (
+      {/* 1. Continuous Floating Balloons */}
+      {BALLOONS.map((b, idx) => (
         <span
-          key={`${triggerKey}-${idx}`}
+          key={`balloon-${idx}`}
           style={{
-            left: p.left,
-            backgroundColor: p.bg,
-            animation: `loyalty-confetti ${p.duration} ease-out ${p.delay} forwards`,
+            left: b.left,
+            fontSize: b.size,
+            animation: `balloon-float ${b.duration} linear ${b.delay} infinite`,
+            // @ts-expect-error CSS variable
+            '--drift-x': b.drift,
+            '--rot': b.rot,
           }}
-          className="absolute top-0 w-2.5 h-3.5 rounded-sm shadow-sm"
+          className="absolute -bottom-16 will-change-transform filter drop-shadow-sm select-none"
+        >
+          {b.emoji}
+        </span>
+      ))}
+
+      {/* 2. Continuous Ambient Confetti Rain */}
+      {CONFETTI_PIECES.map((c, idx) => (
+        <span
+          key={`confetti-${idx}`}
+          style={{
+            left: c.left,
+            width: c.w,
+            height: c.h,
+            backgroundColor: c.bg,
+            animation: `confetti-fall-continuous ${c.duration} linear ${c.delay} infinite`,
+            // @ts-expect-error CSS variable
+            '--sway-x': c.sway,
+            '--spin': c.spin,
+          }}
+          className="absolute -top-6 rounded-xs shadow-xs will-change-transform opacity-90"
         />
       ))}
     </div>

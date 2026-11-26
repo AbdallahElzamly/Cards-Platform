@@ -29,6 +29,7 @@ export interface LoyaltyMember {
   first_name: string;
   phone_hash: string;
   phone_last4: string;
+  phone?: string | null;
   current_stamps: number;
   total_visits: number;
   total_redemptions: number;

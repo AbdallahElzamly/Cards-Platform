@@ -8,48 +8,117 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-cairo), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: var(--font-cairo), system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-cairo), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-cairo), system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ==========================================================================
+   HARDWARE-ACCELERATED CSS3 KEYFRAMES (GPU-ONLY: TRANSFORM & OPACITY)
+   Optimized for 60fps/120fps on iPhone & Android mobile viewports
+   ========================================================================== */
+
 @keyframes loyalty-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); }
-  40% { transform: translateX(8px); }
-  60% { transform: translateX(-5px); }
-  80% { transform: translateX(5px); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(-8px, 0, 0); }
+  40% { transform: translate3d(8px, 0, 0); }
+  60% { transform: translate3d(-5px, 0, 0); }
+  80% { transform: translate3d(5px, 0, 0); }
 }
 
 @keyframes loyalty-shimmer {
-  0% { transform: translateX(120%) skewX(-18deg); }
-  100% { transform: translateX(-220%) skewX(-18deg); }
+  0% { transform: translate3d(120%, 0, 0) skewX(-18deg); }
+  100% { transform: translate3d(-220%, 0, 0) skewX(-18deg); }
 }
 
 @keyframes loyalty-pop {
-  0% { transform: scale(0.85); opacity: 0; }
-  70% { transform: scale(1.04); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale3d(0.88, 0.88, 1); opacity: 0; }
+  70% { transform: scale3d(1.03, 1.03, 1); opacity: 1; }
+  100% { transform: scale3d(1, 1, 1); opacity: 1; }
 }
 
-@keyframes loyalty-confetti {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(150px) rotate(520deg); opacity: 0; }
+/* Continuous Celebration: Floating Balloons & Confetti Loop */
+@keyframes balloon-float {
+  0% {
+    transform: translate3d(0, 110vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate3d(var(--drift-x, 18px), 50vh, 0) rotate(var(--rot, 12deg));
+  }
+  90% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(calc(var(--drift-x, 18px) * -1), -150px, 0) rotate(calc(var(--rot, 12deg) * -1));
+    opacity: 0;
+  }
 }
 
+@keyframes confetti-fall-continuous {
+  0% {
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--sway-x, 30px), 105vh, 0) rotate(var(--spin, 640deg));
+    opacity: 0.2;
+  }
+}
+
+@keyframes pulse-subtle-glow {
+  0%, 100% {
+    transform: scale3d(1, 1, 1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    transform: scale3d(1.025, 1.025, 1);
+    box-shadow: 0 0 25px 6px rgba(245, 158, 11, 0.25);
+  }
+}
+
+/* Performance Classes */
 .animate-loyalty-shake {
   animation: loyalty-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  will-change: transform;
 }
 
 .animate-loyalty-shimmer {
   animation: loyalty-shimmer 3.2s infinite ease-in-out;
+  will-change: transform;
 }
 
 .animate-loyalty-pop {
   animation: loyalty-pop 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.animate-pulse-glow {
+  animation: pulse-subtle-glow 2.4s infinite ease-in-out;
+  will-change: transform, box-shadow;
+}
+
+/* Apple iOS Glass & Touch Utilities */
+.apple-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.apple-glass-dark {
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
