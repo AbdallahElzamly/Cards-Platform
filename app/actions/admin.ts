@@ -6,12 +6,13 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { Card, CardProduct, CardStatus } from '@/types/smart-cards';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
+
 async function checkIsAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -24,18 +25,21 @@ async function checkIsAdmin() {
           } catch {}
         },
       },
-    }
-  );
+    });
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !user.email) return false;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !user.email) return false;
 
-  const adminEmailsEnv = process.env.ADMIN_EMAILS || '';
-  const adminEmails = adminEmailsEnv
-    ? adminEmailsEnv.split(',').map((e) => e.trim().toLowerCase())
-    : ['admin@kuwi.com', 'admin@cards-platform.local'];
+    const adminEmailsEnv = process.env.ADMIN_EMAILS || '';
+    const adminEmails = adminEmailsEnv
+      ? adminEmailsEnv.split(',').map((e) => e.trim().toLowerCase())
+      : ['admin@kuwi.com', 'admin@cards-platform.local'];
 
-  return adminEmails.includes(user.email.toLowerCase());
+    return adminEmails.includes(user.email.toLowerCase());
+  } catch (err) {
+    console.error('checkIsAdmin error:', err);
+    return false;
+  }
 }
 
 /**
@@ -70,7 +74,6 @@ export async function generateBatchAction(formData: FormData): Promise<{ success
   }
 
   try {
-    // Fetch existing codes to prevent collision
     const { data: existing } = await supabaseAdmin.from('cards').select('code');
     const existingCodes = new Set((existing || []).map((c: any) => c.code));
 
@@ -125,26 +128,31 @@ export async function getAdminDashboardData(batchFilter?: string, statusFilter?:
     return { isAdmin: false, cards: [], batches: [] };
   }
 
-  let query = supabaseAdmin.from('cards').select('*').order('created_at', { ascending: false }).limit(200);
+  try {
+    let query = supabaseAdmin.from('cards').select('*').order('created_at', { ascending: false }).limit(200);
 
-  if (batchFilter && batchFilter !== 'ALL') {
-    query = query.eq('batch_name', batchFilter);
+    if (batchFilter && batchFilter !== 'ALL') {
+      query = query.eq('batch_name', batchFilter);
+    }
+    if (statusFilter && statusFilter !== 'ALL') {
+      query = query.eq('status', statusFilter);
+    }
+    if (searchQuery) {
+      query = query.ilike('code', `%${searchQuery}%`);
+    }
+
+    const { data: cards } = await query;
+    const { data: allCards } = await supabaseAdmin.from('cards').select('batch_name');
+
+    const batches = Array.from(new Set((allCards || []).map((c: any) => c.batch_name).filter(Boolean)));
+
+    return {
+      isAdmin: true,
+      cards: cards || [],
+      batches,
+    };
+  } catch (err) {
+    console.error('getAdminDashboardData error:', err);
+    return { isAdmin: true, cards: [], batches: [] };
   }
-  if (statusFilter && statusFilter !== 'ALL') {
-    query = query.eq('status', statusFilter);
-  }
-  if (searchQuery) {
-    query = query.ilike('code', `%${searchQuery}%`);
-  }
-
-  const { data: cards } = await query;
-  const { data: allCards } = await supabaseAdmin.from('cards').select('batch_name');
-
-  const batches = Array.from(new Set((allCards || []).map((c: any) => c.batch_name).filter(Boolean)));
-
-  return {
-    isAdmin: true,
-    cards: cards || [],
-    batches,
-  };
 }

@@ -5,12 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
+
 async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -23,11 +24,14 @@ async function getAuthenticatedUser() {
           } catch {}
         },
       },
-    }
-  );
+    });
 
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  } catch (err) {
+    console.error('getAuthenticatedUser error:', err);
+    return null;
+  }
 }
 
 export async function updateBusinessCardAction(cardId: string, formData: FormData): Promise<{ success: boolean; error?: string }> {
@@ -37,7 +41,6 @@ export async function updateBusinessCardAction(cardId: string, formData: FormDat
   }
 
   try {
-    // Verify ownership of the parent card
     const { data: card } = await supabaseAdmin.from('cards').select('id, owner_id').eq('id', cardId).single();
     if (!card || card.owner_id !== user.id) {
       return { success: false, error: 'غير مسموح بالتعديل' };
