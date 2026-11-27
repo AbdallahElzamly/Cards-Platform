@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { BusinessCard, Card, parseSocialLinks } from '@/types/smart-cards';
 import { activateCardAction } from '@/app/actions/cards';
+import { compressAvatarImage } from '@/lib/image-compress';
 
 interface ActivateCardClientProps {
   card: Card;
@@ -40,30 +41,59 @@ export default function ActivateCardClient({
   const [facebook, setFacebook] = useState(socials.facebook || '');
   const [avatarUrl, setAvatarUrl] = useState(existingBusinessCard?.avatar_url || '');
   const [targetUrl, setTargetUrl] = useState(card.target_url || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('حجم الصورة كبير، الحد الأقصى 2 ميجابايت.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('حجم الصورة كبير جداً، الحد الأقصى 10 ميجابايت.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const result = uploadEvent.target?.result as string;
-      if (result) {
-        setAvatarUrl(result);
+    setUploadingAvatar(true);
+    setErrorMsg(null);
+
+    try {
+      const compressed = await compressAvatarImage(file, 512, 0.82);
+
+      if (currentUserEmail) {
+        const uploadForm = new FormData();
+        uploadForm.append(
+          'file',
+          new File([compressed.blob], `avatar-${card.id}.jpg`, { type: compressed.contentType })
+        );
+        const resp = await fetch('/api/upload-avatar', {
+          method: 'POST',
+          body: uploadForm,
+        });
+        if (resp.ok) {
+          const json = (await resp.json()) as { success?: boolean; url?: string };
+          if (json.url) {
+            setAvatarUrl(json.url);
+            return;
+          }
+        }
       }
-    };
-    reader.readAsDataURL(file);
+
+      if (compressed.dataUrl.length <= 350_000) {
+        setAvatarUrl(compressed.dataUrl);
+      } else {
+        setErrorMsg('تعذر ضغط الصورة بما يكفي، يرجى اختيار صورة أصغر.');
+      }
+    } catch {
+      setErrorMsg('تعذر قراءة الصورة المختارة، يرجى تجربة صورة أخرى.');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (uploadingAvatar) return;
     setErrorMsg(null);
 
     const formData = new FormData(e.currentTarget);
@@ -75,13 +105,16 @@ export default function ActivateCardClient({
     }
 
     startTransition(async () => {
-      const res = await activateCardAction(formData);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر تفعيل الكارت');
-      } else if (productType === 'business' && res.slug) {
-        router.push(`/c/${res.slug}`);
-      } else {
-        router.push('/dashboard');
+      try {
+        const res = await activateCardAction(formData);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر تفعيل الكارت');
+        } else {
+          // Replace /activate/[code] in history and send owner directly to their Dashboard
+          router.replace('/dashboard');
+        }
+      } catch {
+        setErrorMsg('حدث خطأ مؤقت في الاتصال، يرجى الضغط على حفظ مرة أخرى.');
       }
     });
   };
@@ -359,6 +392,9 @@ export default function ActivateCardClient({
                   onChange={handleImageFileChange}
                   className="w-full text-xs text-neutral-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-neutral-100 file:text-neutral-900 hover:file:bg-neutral-200"
                 />
+                {uploadingAvatar && (
+                  <p className="text-xs text-neutral-500 mt-1">جاري ضغط وتجهيز الصورة...</p>
+                )}
               </div>
             </div>
           ) : (
@@ -381,10 +417,14 @@ export default function ActivateCardClient({
 
           <button
             type="submit"
-            disabled={isPending}
-            className="w-full min-h-[50px] py-3.5 bg-[#181818] hover:bg-neutral-800 active:scale-[0.98] text-white font-semibold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] text-sm cursor-pointer"
+            disabled={isPending || uploadingAvatar}
+            className="w-full min-h-[50px] py-3.5 bg-[#181818] hover:bg-neutral-800 disabled:opacity-60 active:scale-[0.98] text-white font-semibold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] text-sm cursor-pointer"
           >
-            {isPending ? 'جاري التفعيل وربط الكارت...' : 'حفظ وتفعيل الكارت الآن'}
+            {uploadingAvatar
+              ? 'جاري تجهيز الصورة...'
+              : isPending
+              ? 'جاري التفعيل وربط الكارت...'
+              : 'حفظ وتفعيل الكارت الآن'}
           </button>
         </form>
       </div>

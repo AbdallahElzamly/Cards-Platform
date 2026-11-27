@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -82,6 +82,17 @@ export default async function ActivateCardPage({ params }: PageProps) {
 
   const socials = parseSocialLinks(existingBc?.social_links);
   const isAdminProvisioned = Boolean(socials.admin_provisioned);
+
+  // If the authenticated owner (or Super Admin) revisits an already-activated card, send them straight to /dashboard
+  if (
+    card.status === 'active' &&
+    card.owner_id &&
+    !isAdminProvisioned &&
+    currentUser &&
+    (currentUser.id === card.owner_id || isSuperAdminEmail(currentUser.email))
+  ) {
+    redirect('/dashboard');
+  }
 
   // If card is already owned by a real client (and not admin-provisioned waiting for client claim)
   if (
