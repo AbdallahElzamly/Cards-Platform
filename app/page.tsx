@@ -272,10 +272,10 @@ export default function Home() {
                   </p>
                 </div>
                 <Link
-                  href="/auth/login?mode=signup&kind=company"
+                  href="/auth/login"
                   className="text-xs font-semibold text-white inline-flex items-center gap-1.5 hover:underline"
                 >
-                  <span>إنشاء حساب شركة</span>
+                  <span>دخول مسؤولي الشركات المتعاقدة</span>
                   <ArrowUpLeftIcon size={14} />
                 </Link>
               </article>
@@ -402,10 +402,10 @@ export default function Home() {
                 </div>
 
                 <Link
-                  href="/auth/login?mode=signup&kind=individual"
+                  href="/auth/login?mode=signup"
                   className="min-h-[48px] py-3 px-5 bg-white hover:bg-neutral-200 text-neutral-950 font-semibold rounded-xl text-sm text-center transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] flex items-center justify-center"
                 >
-                  تفعيل كارت فردي
+                  إنشاء بطاقتك الفردية الآن
                 </Link>
               </div>
 
@@ -432,10 +432,10 @@ export default function Home() {
                 </div>
 
                 <Link
-                  href="/auth/login?mode=signup&kind=company"
+                  href="/auth/login"
                   className="min-h-[48px] py-3 px-5 bg-[#272727] hover:bg-[#313131] border border-white/10 text-white font-semibold rounded-xl text-sm text-center transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] flex items-center justify-center"
                 >
-                  فتح بوابة شركتك الآن
+                  دخول الشركات والمطاعم المتعاقدة
                 </Link>
               </div>
             </div>

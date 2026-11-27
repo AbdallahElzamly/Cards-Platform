@@ -24,6 +24,10 @@ export default async function MerchantDashboardView({
     redirect(`/auth/login?redirect=${encodeURIComponent(target)}`);
   }
 
+  if (!result.success && result.reason === 'NO_LOYALTY_PROGRAM') {
+    redirect('/dashboard');
+  }
+
   if (!result.success || !result.data) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4" dir="rtl">

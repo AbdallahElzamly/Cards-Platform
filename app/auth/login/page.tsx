@@ -6,7 +6,7 @@ import MerchantLoginForm from '@/components/auth/MerchantLoginForm';
 export const dynamic = 'force-dynamic';
 
 interface LoginPageProps {
-  searchParams: Promise<{ redirect?: string; error?: string; mode?: string; kind?: string }>;
+  searchParams: Promise<{ redirect?: string; error?: string; mode?: string }>;
 }
 
 export default async function MerchantLoginPage({ searchParams }: LoginPageProps) {
@@ -24,18 +24,15 @@ export default async function MerchantLoginPage({ searchParams }: LoginPageProps
       } = await supabase.auth.getUser();
       authenticatedUser = user;
     } catch {
-      // Allow login screen to render cleanly if session lookup fails
+      // Allow login screen to render cleanly
     }
   }
 
-  // IMPORTANT: Keep redirect() outside try/catch so NEXT_REDIRECT is never swallowed
   if (authenticatedUser) {
     redirect(safeRedirect);
   }
 
   const initialMode = params.mode === 'signup' ? 'signup' : 'signin';
-  const initialKind =
-    params.kind === 'company' || params.kind === 'merchant' ? params.kind : 'individual';
 
   return (
     <MerchantLoginForm
@@ -44,7 +41,6 @@ export default async function MerchantLoginPage({ searchParams }: LoginPageProps
       missingVars={env.missingVars}
       callbackError={params.error === 'callback'}
       initialMode={initialMode}
-      initialKind={initialKind}
     />
   );
 }

@@ -1,5 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getServerSupabaseEnv } from '@/lib/env';
+import { isSuperAdminEmail } from '@/lib/admin-auth';
 import CompanyPortalClient from '@/components/company/CompanyPortalClient';
 import { BusinessCard, Card, CardLead, CardWithDetails, Company } from '@/types/smart-cards';
 
@@ -16,6 +20,27 @@ export default async function CompanyPortalPage({ params }: PageProps) {
     notFound();
   }
 
+  // Enforce authenticated Company Admin or Super Admin access (Team 4 Security Fix)
+  const env = getServerSupabaseEnv();
+  if (!env.isAuthConfigured) {
+    redirect(`/auth/login?redirect=${encodeURIComponent(`/org/${slug}`)}`);
+  }
+
+  let userEmail: string | null = null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userEmail = user?.email || null;
+  } catch {
+    // handled below
+  }
+
+  if (!userEmail) {
+    redirect(`/auth/login?redirect=${encodeURIComponent(`/org/${slug}`)}`);
+  }
+
   const { data: company, error: coErr } = await supabaseAdmin
     .from('companies')
     .select('*')
@@ -24,6 +49,30 @@ export default async function CompanyPortalPage({ params }: PageProps) {
 
   if (coErr || !company) {
     notFound();
+  }
+
+  const isAuthorized =
+    isSuperAdminEmail(userEmail) ||
+    (Boolean(company.contact_email) &&
+      company.contact_email.trim().toLowerCase() === userEmail.trim().toLowerCase());
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center border border-neutral-200">
+          <h1 className="text-xl font-semibold text-neutral-950 mb-2">بوابة خاصة بإدارة الشركة</h1>
+          <p className="text-sm text-neutral-600 mb-6 leading-relaxed">
+            يرجى تسجيل الدخول بالبريد الرسمي المعتمد لمسؤول شركة ({company.name}) للوصول إلى هذه البوابة.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-[44px] items-center justify-center px-6 py-2.5 bg-[#181818] text-white font-semibold rounded-xl text-sm"
+          >
+            العودة للوحة بطاقتي الشخصية
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   let cardsQuery = supabaseAdmin.from('cards').select('*').order('created_at', { ascending: false });

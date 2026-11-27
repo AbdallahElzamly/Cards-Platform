@@ -11,27 +11,46 @@ import {
   parseSocialLinks,
 } from '@/types/smart-cards';
 
-function normalizeOptionalUrl(raw: string | null | undefined): string | undefined {
+function normalizeSocialUrl(
+  raw: string | null | undefined,
+  platform?: 'linkedin' | 'instagram' | 'facebook' | 'tiktok' | 'telegram'
+): string | undefined {
   const val = (raw || '').trim();
   if (!val) return undefined;
   if (/^https?:\/\//i.test(val)) return val;
+
+  const cleanHandle = val.replace(/^@+/, '');
+  if (!val.includes('.') && !val.includes('/')) {
+    if (platform === 'instagram') return `https://www.instagram.com/${cleanHandle}`;
+    if (platform === 'tiktok') return `https://www.tiktok.com/@${cleanHandle}`;
+    if (platform === 'telegram') return `https://t.me/${cleanHandle}`;
+    if (platform === 'facebook') return `https://www.facebook.com/${cleanHandle}`;
+    if (platform === 'linkedin') return `https://www.linkedin.com/in/${cleanHandle}`;
+  }
+
   return `https://${val}`;
+}
+
+function sanitizeAvatarUrl(raw: string | null | undefined): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return null;
+  if (/^https:\/\//i.test(trimmed)) return trimmed;
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(trimmed) && trimmed.length <= 4_200_000) {
+    return trimmed;
+  }
+  return null;
 }
 
 function getErrMsg(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
 
-function generateUnambiguousCode(existingCodes: Set<string>): string {
+function generateRandomSixCharCode(): string {
   const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
   let code = '';
-  do {
-    code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-  } while (existingCodes.has(code));
-  existingCodes.add(code);
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   return code;
 }
 
@@ -55,7 +74,7 @@ async function canUserManageCard(
   if (card.owner_id && card.owner_id === user.id) return true;
   if (isSuperAdminEmail(user.email)) return true;
 
-  if (user.email && card.batch_name) {
+  if (user.email && card.batch_name && card.batch_name !== 'SELF_INDIVIDUAL') {
     const { data: company } = await supabaseAdmin
       .from('companies')
       .select('id')
@@ -67,6 +86,131 @@ async function canUserManageCard(
   }
 
   return false;
+}
+
+/**
+ * Guided Individual Onboarding Wizard Action:
+ * Creates strictly AT MOST 1 personal starter card per individual user (zero bulk/free-minting abuse).
+ */
+export async function createPersonalStarterCardAction(formData: FormData): Promise<{
+  success: boolean;
+  error?: string;
+  slug?: string;
+  code?: string;
+}> {
+  const user = await getAuthenticatedUser();
+  if (!user || !user.email) {
+    return { success: false, error: 'يرجى تسجيل الدخول أولاً.' };
+  }
+
+  try {
+    // Hard Quota Enforcement (Team 4 & Team 5 Lock): Max 1 starter card when user owns 0 cards
+    const { count: ownedCount, error: countErr } = await supabaseAdmin
+      .from('cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_id', user.id);
+
+    if (countErr) throw countErr;
+
+    if ((ownedCount || 0) > 0 && !isSuperAdminEmail(user.email)) {
+      return {
+        success: false,
+        error: 'لديك بطاقة مفعّلة بالفعل في حسابك. لإضافة بطاقة مطبوعة جديدة، استخدم كود التفعيل المطبوع عليها.',
+      };
+    }
+
+    const fullName = (formData.get('full_name')?.toString() || '').trim();
+    if (!fullName) {
+      return { success: false, error: 'يرجى كتابة اسمك الكامل.' };
+    }
+
+    const jobTitle = (formData.get('job_title')?.toString() || '').trim() || null;
+    const company = (formData.get('company')?.toString() || '').trim() || null;
+    const bio = (formData.get('bio')?.toString() || '').trim() || null;
+    const phone = (formData.get('phone')?.toString() || '').trim() || null;
+    const phone2 = (formData.get('phone2')?.toString() || '').trim() || undefined;
+    const whatsapp = (formData.get('whatsapp')?.toString() || '').trim() || phone || null;
+    const email = (formData.get('email')?.toString() || '').trim() || user.email;
+    const surfaceTheme =
+      (formData.get('surface_theme')?.toString() as CardSurfaceTheme) || 'obsidian';
+
+    const socialLinks: CardSocialLinks = {
+      phone2,
+      linkedin: normalizeSocialUrl(formData.get('linkedin')?.toString(), 'linkedin'),
+      instagram: normalizeSocialUrl(formData.get('instagram')?.toString(), 'instagram'),
+      facebook: normalizeSocialUrl(formData.get('facebook')?.toString(), 'facebook'),
+      surface_theme: surfaceTheme,
+    };
+
+    // Insert card with automatic collision retry on 6-char code
+    let createdCard: { id: string; code: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidateCode = generateRandomSixCharCode();
+      const { data, error } = await supabaseAdmin
+        .from('cards')
+        .insert({
+          code: candidateCode,
+          owner_id: user.id,
+          product: 'business',
+          status: 'active',
+          batch_name: 'SELF_INDIVIDUAL',
+        })
+        .select('id, code')
+        .single();
+
+      if (!error && data) {
+        createdCard = data;
+        break;
+      }
+      if (error && error.code !== '23505') {
+        throw error;
+      }
+    }
+
+    if (!createdCard) {
+      return { success: false, error: 'تعذر حجز كود فريد للبطاقة، يرجى المحاولة مرة أخرى.' };
+    }
+
+    const cleanAscii = fullName
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9\-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const slug = `${cleanAscii || `card-${createdCard.code.toLowerCase()}`}-${Math.floor(
+      100 + Math.random() * 900
+    )}`;
+
+    const { error: bcErr } = await supabaseAdmin.from('business_cards').insert({
+      card_id: createdCard.id,
+      slug,
+      full_name: fullName,
+      job_title: jobTitle,
+      company,
+      bio,
+      phone,
+      whatsapp,
+      email,
+      theme_color: '#181818',
+      social_links: socialLinks,
+      is_active: true,
+    });
+
+    if (bcErr) {
+      // Atomic rollback of parent card row on failure
+      await supabaseAdmin.from('cards').delete().eq('id', createdCard.id);
+      throw bcErr;
+    }
+
+    revalidatePath('/dashboard');
+    revalidatePath(`/c/${slug}`);
+
+    return { success: true, slug, code: createdCard.code };
+  } catch (err: unknown) {
+    console.error('createPersonalStarterCardAction error:', err);
+    return { success: false, error: getErrMsg(err, 'تعذر إنشاء بطاقتك الشخصية.') };
+  }
 }
 
 export async function updateBusinessCardAction(
@@ -81,12 +225,16 @@ export async function updateBusinessCardAction(
   try {
     const { data: card } = await supabaseAdmin
       .from('cards')
-      .select('id, code, owner_id, batch_name')
+      .select('id, code, owner_id, batch_name, status')
       .eq('id', cardId)
       .single();
 
     if (!card || !(await canUserManageCard(user, card))) {
       return { success: false, error: 'غير مصرح لك بتعديل هذا الكارت.' };
+    }
+
+    if (card.status === 'suspended' && !isSuperAdminEmail(user.email)) {
+      return { success: false, error: 'هذا الكارت موقوف من الإدارة ولا يمكن تعديله حالياً.' };
     }
 
     const { data: existingBc } = await supabaseAdmin
@@ -102,9 +250,9 @@ export async function updateBusinessCardAction(
     const phone = (formData.get('phone')?.toString() || '').trim();
     const whatsapp = (formData.get('whatsapp')?.toString() || '').trim();
     const email = (formData.get('email')?.toString() || '').trim();
-    const website = normalizeOptionalUrl(formData.get('website')?.toString()) || '';
+    const website = normalizeSocialUrl(formData.get('website')?.toString()) || '';
     const vodafoneCash = (formData.get('vodafone_cash')?.toString() || '').trim();
-    const instapayUrl = normalizeOptionalUrl(formData.get('instapay_url')?.toString()) || '';
+    const instapayUrl = normalizeSocialUrl(formData.get('instapay_url')?.toString()) || '';
     const themeColor = formData.get('theme_color')?.toString() || existingBc?.theme_color || '#181818';
     const avatarUrlRaw = formData.get('avatar_url')?.toString();
     const socialLinksJson = formData.get('social_links_json')?.toString();
@@ -119,9 +267,13 @@ export async function updateBusinessCardAction(
       }
     }
 
+    // Security Strip: Never allow client JSON to inject admin_provisioned
+    delete parsedClientSocials.admin_provisioned;
+
     const mergedSocials: CardSocialLinks = {
       ...prevSocials,
-      ...parsedClientSocials,
+      visible_fields: parsedClientSocials.visible_fields ?? prevSocials.visible_fields,
+      surface_theme: parsedClientSocials.surface_theme ?? prevSocials.surface_theme,
     };
 
     const socialFieldKeys = [
@@ -148,8 +300,16 @@ export async function updateBusinessCardAction(
           mergedSocials.surface_theme = (rawVal as CardSurfaceTheme) || undefined;
         } else if (key === 'phone2' || key === 'custom_link_title') {
           mergedSocials[key] = rawVal || undefined;
+        } else if (
+          key === 'linkedin' ||
+          key === 'instagram' ||
+          key === 'facebook' ||
+          key === 'tiktok' ||
+          key === 'telegram'
+        ) {
+          mergedSocials[key] = normalizeSocialUrl(rawVal, key);
         } else {
-          mergedSocials[key] = normalizeOptionalUrl(rawVal);
+          mergedSocials[key] = normalizeSocialUrl(rawVal);
         }
       }
     }
@@ -174,7 +334,7 @@ export async function updateBusinessCardAction(
       };
 
       if (avatarUrlRaw !== undefined) {
-        updatePayload.avatar_url = avatarUrlRaw.trim() || null;
+        updatePayload.avatar_url = sanitizeAvatarUrl(avatarUrlRaw);
       }
 
       const { error } = await supabaseAdmin
@@ -206,7 +366,7 @@ export async function updateBusinessCardAction(
         vodafone_cash: vodafoneCash || null,
         instapay_url: instapayUrl || null,
         theme_color: themeColor,
-        avatar_url: avatarUrlRaw?.trim() || null,
+        avatar_url: sanitizeAvatarUrl(avatarUrlRaw),
         social_links: mergedSocials,
         is_active: true,
       });
@@ -242,7 +402,7 @@ export async function updateReviewCardTargetUrlAction(
   try {
     const { data: card } = await supabaseAdmin
       .from('cards')
-      .select('id, owner_id, batch_name')
+      .select('id, owner_id, batch_name, status')
       .eq('id', cardId)
       .single();
 
@@ -250,7 +410,11 @@ export async function updateReviewCardTargetUrlAction(
       return { success: false, error: 'غير مصرح لك بتعديل هذا الكارت.' };
     }
 
-    const normalized = normalizeOptionalUrl(targetUrl);
+    if (card.status === 'suspended' && !isSuperAdminEmail(user.email)) {
+      return { success: false, error: 'هذا الكارت موقوف من الإدارة.' };
+    }
+
+    const normalized = normalizeSocialUrl(targetUrl);
     if (!normalized) {
       return { success: false, error: 'يرجى إدخال رابط صحيح.' };
     }
@@ -281,12 +445,24 @@ export async function updateCardStatusModeAction(
   try {
     const { data: card } = await supabaseAdmin
       .from('cards')
-      .select('id, owner_id, batch_name')
+      .select('id, owner_id, batch_name, status')
       .eq('id', cardId)
       .single();
 
     if (!card || !(await canUserManageCard(user, card))) {
       return { success: false, error: 'غير مصرح لك بتغيير حالة الكارت.' };
+    }
+
+    const isAdmin = isSuperAdminEmail(user.email);
+
+    // Block non-admins from un-suspending admin-suspended cards or resetting to unclaimed
+    if (!isAdmin) {
+      if (card.status === 'suspended') {
+        return { success: false, error: 'هذا الكارت موقوف من الإدارة ولا يمكن إعادة تفعيله إلا عبر الدعم.' };
+      }
+      if (status !== 'active' && status !== 'lost') {
+        return { success: false, error: 'يمكنك التبديل فقط بين الوضع النشط ووضع الفقدان.' };
+      }
     }
 
     const { error } = await supabaseAdmin
@@ -308,9 +484,12 @@ export async function reassignCardCustodyAction(
   cardId: string,
   formData: FormData,
   clearLeads: boolean,
-  companySlugForPortal?: string
+  companySlugToRevalidate?: string
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getAuthenticatedUser();
+  if (!user) {
+    return { success: false, error: 'يجب تسجيل الدخول بحساب مسؤول الشركة أولاً.' };
+  }
 
   try {
     const { data: card } = await supabaseAdmin
@@ -319,27 +498,7 @@ export async function reassignCardCustodyAction(
       .eq('id', cardId)
       .single();
 
-    if (!card) {
-      return { success: false, error: 'الكارت غير موجود.' };
-    }
-
-    let authorized = false;
-    if (user && (await canUserManageCard(user, card))) {
-      authorized = true;
-    } else if (companySlugForPortal && card.batch_name) {
-      const { data: portalCompany } = await supabaseAdmin
-        .from('companies')
-        .select('id, batch_name')
-        .eq('slug', companySlugForPortal)
-        .eq('batch_name', card.batch_name)
-        .maybeSingle();
-
-      if (portalCompany) {
-        authorized = true;
-      }
-    }
-
-    if (!authorized) {
+    if (!card || !(await canUserManageCard(user, card))) {
       return { success: false, error: 'غير مصرح لك بنقل عهدة هذا الكارت.' };
     }
 
@@ -355,7 +514,7 @@ export async function reassignCardCustodyAction(
     const phone = (formData.get('phone')?.toString() || '').trim() || null;
     const whatsapp = (formData.get('whatsapp')?.toString() || '').trim() || phone || null;
     const email = (formData.get('email')?.toString() || '').trim() || null;
-    const linkedin = normalizeOptionalUrl(formData.get('linkedin')?.toString());
+    const linkedin = normalizeSocialUrl(formData.get('linkedin')?.toString(), 'linkedin');
     const phone2 = (formData.get('phone2')?.toString() || '').trim() || undefined;
 
     const prevSocials = parseSocialLinks(existingBc?.social_links);
@@ -418,7 +577,7 @@ export async function reassignCardCustodyAction(
     }
 
     revalidatePath('/dashboard');
-    if (companySlugForPortal) revalidatePath(`/org/${companySlugForPortal}`);
+    if (companySlugToRevalidate) revalidatePath(`/org/${companySlugToRevalidate}`);
     return { success: true };
   } catch (err: unknown) {
     console.error('reassignCardCustodyAction error:', err);
@@ -431,8 +590,8 @@ export async function transferCardOwnershipAction(
   recipientEmail: string
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getAuthenticatedUser();
-  if (!user) {
-    return { success: false, error: 'يجب تسجيل الدخول أولاً.' };
+  if (!user || !isSuperAdminEmail(user.email)) {
+    return { success: false, error: 'نقل الملكية متاح لمشرف المنصة فقط.' };
   }
 
   try {
@@ -442,8 +601,8 @@ export async function transferCardOwnershipAction(
       .eq('id', cardId)
       .single();
 
-    if (!card || !(await canUserManageCard(user, card))) {
-      return { success: false, error: 'غير مصرح لك بنقل ملكية هذا الكارت.' };
+    if (!card || card.batch_name === 'SELF_INDIVIDUAL') {
+      return { success: false, error: 'لا يمكن نقل ملكية هذا الكارت.' };
     }
 
     const email = recipientEmail.trim().toLowerCase();
@@ -462,7 +621,7 @@ export async function transferCardOwnershipAction(
     if (!recipient) {
       return {
         success: false,
-        error: `لا يوجد حساب مسجل بالبريد (${email}) بعد. يمكنك إرسال رابط التفعيل للعميل لينشئ حسابه في خطوة واحدة.`,
+        error: `لا يوجد حساب مسجل بالبريد (${email}) بعد. أرسل رابط التفعيل للعميل لينشئ حسابه مباشرة.`,
       };
     }
 
@@ -481,53 +640,19 @@ export async function transferCardOwnershipAction(
   }
 }
 
-export async function createSelfServeCompanyAction(
-  formData: FormData
-): Promise<{ success: boolean; error?: string; slug?: string }> {
-  const user = await getAuthenticatedUser();
-  if (!user || !user.email) {
-    return { success: false, error: 'يجب تسجيل الدخول لإنشاء مساحة الشركة.' };
-  }
-
-  try {
-    const name = (formData.get('company_name')?.toString() || '').trim();
-    if (!name) {
-      return { success: false, error: 'يرجى إدخال اسم الشركة أو المؤسسة.' };
-    }
-
-    const cleanSlugBase =
-      name
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-]/g, '')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '') || 'company';
-
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const slug = `${cleanSlugBase}-${rand}`;
-    const batchName = `ORG-${cleanSlugBase.toUpperCase().slice(0, 10)}-${rand}`;
-
-    const { error } = await supabaseAdmin.from('companies').insert({
-      name,
-      slug,
-      contact_email: user.email.toLowerCase(),
-      batch_name: batchName,
-    });
-
-    if (error) throw error;
-
-    revalidatePath('/dashboard');
-    revalidatePath('/admin');
-    return { success: true, slug };
-  } catch (err: unknown) {
-    console.error('createSelfServeCompanyAction error:', err);
-    return { success: false, error: getErrMsg(err, 'تعذر إنشاء مساحة الشركة.') };
-  }
-}
-
+/**
+ * Claim a printed physical NFC card code into the user's personal account.
+ * Rejects suspended/lost cards and corporate fleet cards.
+ */
 export async function claimCardByCodeInDashboardAction(
   rawCode: string,
-  companyBatchName?: string
+  optionalInitialProfile?: {
+    fullName?: string;
+    jobTitle?: string;
+    company?: string;
+    phone?: string;
+    whatsapp?: string;
+  }
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getAuthenticatedUser();
   if (!user) {
@@ -550,6 +675,22 @@ export async function claimCardByCodeInDashboardAction(
       return { success: false, error: `الكود (${code}) غير مسجل في النظام.` };
     }
 
+    if (card.status === 'suspended' || card.status === 'lost') {
+      return { success: false, error: 'هذا الكارت موقوف أو مبلغ عن فقدانه.' };
+    }
+
+    const isCorporateBatch = Boolean(
+      card.batch_name &&
+        (card.batch_name.startsWith('CORP-') || card.batch_name.startsWith('ORG-'))
+    );
+
+    if (isCorporateBatch && !isSuperAdminEmail(user.email)) {
+      return {
+        success: false,
+        error: 'هذا الكارت تابع لأسطول شركة ولا يمكن ربطه بحساب فردي.',
+      };
+    }
+
     const { data: existingBc } = await supabaseAdmin
       .from('business_cards')
       .select('*')
@@ -564,20 +705,15 @@ export async function claimCardByCodeInDashboardAction(
       !socials.admin_provisioned &&
       !isSuperAdminEmail(user.email)
     ) {
-      return { success: false, error: 'هذا الكارت مرتبط بحساب مستخدم آخر بالفعل.' };
-    }
-
-    const updateCardPayload: Record<string, unknown> = {
-      owner_id: user.id,
-      status: 'active',
-    };
-    if (companyBatchName) {
-      updateCardPayload.batch_name = companyBatchName;
+      return { success: false, error: 'هذا الكارت مفعل ومرتبط بحساب مستخدم آخر بالفعل.' };
     }
 
     const { error: upErr } = await supabaseAdmin
       .from('cards')
-      .update(updateCardPayload)
+      .update({
+        owner_id: user.id,
+        status: 'active',
+      })
       .eq('id', card.id);
 
     if (upErr) throw upErr;
@@ -587,7 +723,17 @@ export async function claimCardByCodeInDashboardAction(
       await supabaseAdmin.from('business_cards').insert({
         card_id: card.id,
         slug,
-        full_name: user.user_metadata?.full_name || 'كارت أعمال جديد',
+        full_name:
+          optionalInitialProfile?.fullName?.trim() ||
+          user.user_metadata?.full_name ||
+          'بطاقتي الذكية',
+        job_title: optionalInitialProfile?.jobTitle?.trim() || null,
+        company: optionalInitialProfile?.company?.trim() || null,
+        phone: optionalInitialProfile?.phone?.trim() || null,
+        whatsapp:
+          optionalInitialProfile?.whatsapp?.trim() ||
+          optionalInitialProfile?.phone?.trim() ||
+          null,
         email: user.email || null,
         theme_color: '#181818',
         social_links: { surface_theme: 'obsidian' },
@@ -606,97 +752,5 @@ export async function claimCardByCodeInDashboardAction(
     return { success: true };
   } catch (err: unknown) {
     return { success: false, error: getErrMsg(err, 'تعذر ربط الكارت بالحساب.') };
-  }
-}
-
-export async function createCompanyEmployeeCardAction(
-  companyId: string,
-  formData: FormData
-): Promise<{ success: boolean; error?: string; code?: string }> {
-  const user = await getAuthenticatedUser();
-  if (!user || !user.email) {
-    return { success: false, error: 'يجب تسجيل الدخول أولاً.' };
-  }
-
-  try {
-    const { data: company } = await supabaseAdmin
-      .from('companies')
-      .select('*')
-      .eq('id', companyId)
-      .single();
-
-    if (!company) {
-      return { success: false, error: 'الشركة غير موجودة.' };
-    }
-
-    const isOwnerOrAdmin =
-      isSuperAdminEmail(user.email) ||
-      company.contact_email?.toLowerCase() === user.email.toLowerCase();
-
-    if (!isOwnerOrAdmin) {
-      return { success: false, error: 'غير مصرح لك بإضافة كروت لهذه الشركة.' };
-    }
-
-    let batchName = company.batch_name;
-    if (!batchName) {
-      batchName = `ORG-${company.slug.toUpperCase().slice(0, 12)}`;
-      await supabaseAdmin.from('companies').update({ batch_name: batchName }).eq('id', company.id);
-    }
-
-    const { data: existingCodesData } = await supabaseAdmin.from('cards').select('code');
-    const existingCodes = new Set(
-      ((existingCodesData || []) as Array<{ code: string }>).map((c) => c.code)
-    );
-    const code = generateUnambiguousCode(existingCodes);
-
-    const { data: newCard, error: cardErr } = await supabaseAdmin
-      .from('cards')
-      .insert({
-        code,
-        owner_id: user.id,
-        product: 'business',
-        status: 'active',
-        batch_name: batchName,
-      })
-      .select('*')
-      .single();
-
-    if (cardErr || !newCard) throw cardErr;
-
-    const fullName = (formData.get('full_name')?.toString() || '').trim() || 'موظف جديد';
-    const jobTitle = (formData.get('job_title')?.toString() || '').trim() || null;
-    const phone = (formData.get('phone')?.toString() || '').trim() || null;
-    const whatsapp = (formData.get('whatsapp')?.toString() || '').trim() || phone || null;
-    const email = (formData.get('email')?.toString() || '').trim() || null;
-    const linkedin = normalizeOptionalUrl(formData.get('linkedin')?.toString());
-
-    const slug = `emp-${code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`;
-
-    const { error: bcErr } = await supabaseAdmin.from('business_cards').insert({
-      card_id: newCard.id,
-      slug,
-      full_name: fullName,
-      job_title: jobTitle,
-      company: company.name,
-      phone,
-      whatsapp,
-      email,
-      theme_color: '#181818',
-      social_links: {
-        linkedin,
-        surface_theme: 'obsidian',
-      },
-      is_active: true,
-    });
-
-    if (bcErr) throw bcErr;
-
-    revalidatePath('/dashboard');
-    revalidatePath(`/org/${company.slug}`);
-    revalidatePath('/admin');
-    return { success: true, code };
-  } catch (err: unknown) {
-    console.error('createCompanyEmployeeCardAction error:', err);
-    return { success: false, error: getErrMsg(err, 'تعذر إنشاء كارت الموظف.') };
   }
 }

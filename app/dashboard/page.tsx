@@ -63,7 +63,8 @@ export default async function UnifiedDashboardPage() {
     redirect('/auth/login?redirect=/dashboard');
   }
 
-  let user: { id: string; email?: string | null } | null = null;
+  let user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null =
+    null;
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getUser();
@@ -77,6 +78,8 @@ export default async function UnifiedDashboardPage() {
   }
 
   const isSuperAdmin = isSuperAdminEmail(user.email);
+  const defaultDisplayName =
+    typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
 
   let personalCards: CardWithDetails[] = [];
   let companies: Company[] = [];
@@ -93,6 +96,7 @@ export default async function UnifiedDashboardPage() {
 
     personalCards = await enrichCardsList((personalRawCards || []) as Card[]);
 
+    // Only Super Admin or authorized Company Managers (matched by admin-created companies.contact_email) get Fleet capabilities
     let companiesQuery = supabaseAdmin
       .from('companies')
       .select('*')
@@ -119,10 +123,12 @@ export default async function UnifiedDashboardPage() {
       fleetCards = await enrichCardsList((fleetRaw || []) as Card[]);
     }
 
+    // Only show Loyalty link if user actually owns an active loyalty_programs row (or is Super Admin)
     const { data: lp } = await supabaseAdmin
       .from('loyalty_programs')
       .select('business_name')
       .eq('owner_id', user.id)
+      .eq('is_active', true)
       .maybeSingle();
 
     loyaltyProgram = lp || null;
@@ -157,6 +163,7 @@ export default async function UnifiedDashboardPage() {
       fleetCards={fleetCards}
       loyaltyProgram={loyaltyProgram}
       userEmail={user.email}
+      defaultDisplayName={defaultDisplayName}
       isSuperAdmin={isSuperAdmin}
     />
   );

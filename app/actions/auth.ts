@@ -5,8 +5,6 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
 
-export type AccountKind = 'individual' | 'company' | 'merchant';
-
 export interface AuthActionResult {
   success: boolean;
   error?: string;
@@ -71,7 +69,6 @@ export async function merchantSignInAction(
       password,
     });
 
-    // Auto-heal unconfirmed accounts when service_role is available
     if (error && error.message.toLowerCase().includes('email not confirmed') && env.isAdminConfigured) {
       try {
         const admin = getSupabaseAdmin();
@@ -100,7 +97,7 @@ export async function merchantSignInAction(
 
     return {
       success: true,
-      message: 'تم تسجيل الدخول بنجاح. جارٍ فتح لوحة التحكم...',
+      message: 'تم تسجيل الدخول بنجاح.',
     };
   } catch (err) {
     console.error('merchantSignInAction error:', err);
@@ -111,11 +108,14 @@ export async function merchantSignInAction(
   }
 }
 
+/**
+ * Public signups ALWAYS create isolated Individual accounts (`account_kind: 'individual'`).
+ * Company fleets and Restaurant loyalty programs are provisioned exclusively by Super Admin.
+ */
 export async function merchantSignUpAction(
   email: string,
   password: string,
-  displayName?: string,
-  accountKind: AccountKind = 'individual'
+  displayName?: string
 ): Promise<AuthActionResult> {
   try {
     const env = getServerSupabaseEnv();
@@ -137,17 +137,15 @@ export async function merchantSignUpAction(
     const trimmedName = displayName?.trim().slice(0, 80) || '';
     const supabase = await createSupabaseServerClient();
 
-    // Fast path: create pre-confirmed user via Admin API (avoids SMTP limits & confirmation friction)
     if (env.isAdminConfigured) {
       const admin = getSupabaseAdmin();
-      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      const { error: createErr } = await admin.auth.admin.createUser({
         email: cleanEmail,
         password,
         email_confirm: true,
         user_metadata: {
           full_name: trimmedName || undefined,
-          business_name: trimmedName || 'نشاطي',
-          account_kind: accountKind,
+          account_kind: 'individual',
         },
       });
 
@@ -156,35 +154,6 @@ export async function merchantSignUpAction(
           success: false,
           error: mapSupabaseAuthError(createErr),
         };
-      }
-
-      // If company account, ensure a starter company workspace exists if name was given
-      if (accountKind === 'company' && trimmedName && created.user) {
-        try {
-          const { data: existingCo } = await admin
-            .from('companies')
-            .select('id')
-            .eq('contact_email', cleanEmail)
-            .maybeSingle();
-
-          if (!existingCo) {
-            const baseSlug =
-              trimmedName
-                .toLowerCase()
-                .replace(/\s+/g, '-')
-                .replace(/[^\w\-]+/g, '') || 'org';
-            const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
-            const batchName = `ORG-${slug.toUpperCase().slice(0, 12)}`;
-            await admin.from('companies').insert({
-              name: trimmedName,
-              slug,
-              contact_email: cleanEmail,
-              batch_name: batchName,
-            });
-          }
-        } catch (coErr) {
-          console.warn('Starter company creation skipped:', coErr);
-        }
       }
 
       const { error: signInErr } = await supabase.auth.signInWithPassword({
@@ -201,19 +170,17 @@ export async function merchantSignUpAction(
 
       return {
         success: true,
-        message: 'تم إنشاء حسابك وتسجيل الدخول فوراً.',
+        message: 'تم إنشاء حسابك بنجاح. جارٍ تجهيز بطاقتك الذكية...',
       };
     }
 
-    // Fallback when only anon/publishable key is configured
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
       options: {
         data: {
           full_name: trimmedName || undefined,
-          business_name: trimmedName || 'نشاطي',
-          account_kind: accountKind,
+          account_kind: 'individual',
         },
       },
     });

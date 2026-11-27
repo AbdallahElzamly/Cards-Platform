@@ -128,6 +128,34 @@ export async function activateCardAction(
       return { success: false, error: 'هذا الكارت غير مسجل في النظام.' };
     }
 
+    if (card.status === 'suspended' || card.status === 'lost') {
+      return {
+        success: false,
+        error: 'هذا الكارت موقوف أو مبلغ عن فقدانه ولا يمكن إعادة تفعيله إلا عبر مالكه أو الإدارة.',
+      };
+    }
+
+    const isCorporateBatch = Boolean(
+      card.batch_name &&
+        (card.batch_name.startsWith('CORP-') || card.batch_name.startsWith('ORG-'))
+    );
+
+    if (isCorporateBatch && !isSuperAdminEmail(user.email)) {
+      const { data: authorizedCo } = await supabaseAdmin
+        .from('companies')
+        .select('id')
+        .eq('batch_name', card.batch_name)
+        .ilike('contact_email', user.email || '')
+        .maybeSingle();
+
+      if (!authorizedCo) {
+        return {
+          success: false,
+          error: 'هذا الكارت مخصص لأسطول شركة ويتم تفعيله من خلال مسؤول الشركة.',
+        };
+      }
+    }
+
     const { data: existingBc } = await supabaseAdmin
       .from('business_cards')
       .select('*')

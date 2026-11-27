@@ -5,10 +5,12 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
 import { generateRandomPin, hashDailyPin } from '@/lib/loyalty-crypto';
+import { isSuperAdminEmail } from '@/lib/admin-auth';
 import { LoyaltyProgram } from '@/types/loyalty';
 
 export type DashboardFailureReason =
   | 'UNAUTHENTICATED'
+  | 'NO_LOYALTY_PROGRAM'
   | 'ENV_MISSING'
   | 'DB_PERMISSION_DENIED'
   | 'DB_ERROR';
@@ -132,9 +134,17 @@ export async function getMerchantLoyaltyDashboard(
 
     let program: LoyaltyProgram | null = existingPrograms?.[0] || null;
 
-    // Auto-create default loyalty program on first merchant login
+    // Security Gate (Team 3 & Team 4 Audit): Only Super Admin auto-creates a demo loyalty program.
+    // Individual business-card accounts without an assigned loyalty_programs row are denied auto-minting.
     if (!program) {
-      // Check if 'test-cafe' slug is free so the homepage demo button works immediately!
+      if (!isSuperAdminEmail(user.email)) {
+        return {
+          success: false,
+          reason: 'NO_LOYALTY_PROGRAM',
+          error: 'هذا الحساب مخصص لكروت الأعمال الذكية وليس مرتبطاً ببرنامج ولاء مطاعم.',
+        };
+      }
+
       const { data: testCafeExists } = await admin
         .from('loyalty_programs')
         .select('id')
