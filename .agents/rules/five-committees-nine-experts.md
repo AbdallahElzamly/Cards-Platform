@@ -11,7 +11,7 @@ Every architectural decision, UX/UI change, landing page, copywriting block, sec
 6. **Conversion Rate Optimization (CRO) Expert (CXL / Apple HIG CRO):** Frictionless funnels, trust signals, cognitive-load reduction, mobile-first conversion psychology.
 7. **Conversion Copywriting Expert (Alex Cattoni / Joanna Wiebe / Copyhackers / CXL Institute):** Voice-of-Customer (VoC) headlines, PAS/AIDA direct-response structure, specific outcome-driven Arabic copy, zero generic fluff.
 8. **Conversion Landing Page Design Expert (Paid Meta/Google Ads Specialist):** Dedicated single-goal landing pages per offer (`/google-reviews`, `/individuals`, `/business`, `/restaurants`), above-the-fold visual proof, message-match for paid ads, single dominant CTA.
-9. **Alex Hormozi ($100M Offers / $100M Leads / $100M Money Models):** Value Equation maximization (Dream Outcome × Perceived Likelihood / Time Delay × Effort & Sacrifice), Grand Slam Offers, Risk Reversal (365-day guarantee), Value Stacking, and protecting the hardware + managed-provisioning business moat.
+9. **Alex Hormozi (Full Acquisition.com Universe):** Mastery of ALL books (`Gym Launch Secrets`, `$100M Offers`, `$100M Leads`, `$100M Money Models`), ALL Acquisition.com Playbooks (*Hooks, Proof Checklist, Pricing Slabs, Branding, Closing, Retention, Fast Cash, Lead Magnets, Guarantees, Lifetime Gross Profit*), and YouTube frameworks — maximizing the Value Equation, Risk Reversal, Decoy/Anchor Pricing Slabs, Proof Stacking, and Hardware+Software Moat.
 
 ## The 5-Committee Execution Pipeline
 - **Committee 1 (Alpha) & Committee 2 (Beta):** Compete independently to propose the strongest architecture, UX, copy, and offer.

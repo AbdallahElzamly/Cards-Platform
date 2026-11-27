@@ -8,6 +8,7 @@ import {
 } from '@/app/actions/loyalty-merchant';
 import { merchantSignOutAction } from '@/app/actions/auth';
 import { parseRewardTermsAndMenu } from '@/lib/loyalty-menu';
+import { getKuwiOrderHref } from '@/lib/brand-config';
 
 interface MerchantLoyaltyDashboardProps {
   initialData: MerchantDashboardData;
@@ -285,9 +286,10 @@ export default function MerchantLoyaltyDashboard({
               </div>
 
               <a
-                href={`https://wa.me/201112708046?text=${encodeURIComponent(
-                  `أهلاً فريق KUWI، نرغب في طلب ستاندات/كروت NFC إضافية لمطعم ${program.business_name}.`
-                )}`}
+                href={getKuwiOrderHref(
+                  `أهلاً فريق KUWI، نرغب في طلب ستاندات/كروت NFC إضافية لمطعم ${program.business_name}.`,
+                  `طلب ستاندات إضافية — ${program.business_name}`
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full min-h-[46px] py-3 px-4 bg-[#0B0B0F] hover:bg-neutral-800 text-[#C8FF2E] font-extrabold rounded-2xl transition text-xs flex items-center justify-center gap-2"
