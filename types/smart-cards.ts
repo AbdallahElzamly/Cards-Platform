@@ -2,6 +2,28 @@ export type CardProduct = 'business' | 'review' | 'loyalty';
 
 export type CardStatus = 'unclaimed' | 'active' | 'suspended' | 'lost';
 
+export type CardSurfaceTheme = 'obsidian' | 'pearl' | 'titanium' | 'emerald' | 'amber';
+
+export interface CardSocialLinks {
+  phone2?: string;
+  linkedin?: string;
+  facebook?: string;
+  instagram?: string;
+  tiktok?: string;
+  telegram?: string;
+  x?: string;
+  youtube?: string;
+  github?: string;
+  behance?: string;
+  location_url?: string;
+  custom_link_title?: string;
+  custom_link_url?: string;
+  surface_theme?: CardSurfaceTheme;
+  admin_provisioned?: boolean;
+  visible_fields?: Record<string, boolean>;
+  [key: string]: unknown;
+}
+
 export interface Card {
   id: string;
   code: string;
@@ -29,7 +51,7 @@ export interface BusinessCard {
   website: string | null;
   instapay_url: string | null;
   vodafone_cash: string | null;
-  social_links: Record<string, any>;
+  social_links: CardSocialLinks;
   is_active: boolean;
   created_at: string;
 }
@@ -59,4 +81,17 @@ export interface Company {
   contact_email: string | null;
   batch_name: string | null;
   created_at: string;
+}
+
+export interface CardWithDetails extends Card {
+  business_card?: BusinessCard | null;
+  scan_count?: number;
+  leads?: CardLead[];
+}
+
+export function parseSocialLinks(raw: unknown): CardSocialLinks {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  return raw as CardSocialLinks;
 }

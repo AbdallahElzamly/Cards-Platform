@@ -1,64 +1,123 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
+import { revalidatePath } from 'next/cache';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getServerSupabaseEnv } from '@/lib/env';
+import { isSuperAdminEmail } from '@/lib/admin-auth';
+import { CardSocialLinks, CardSurfaceTheme, parseSocialLinks } from '@/types/smart-cards';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
+function normalizeUrl(raw: string | null | undefined): string | undefined {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 
-export async function activateCardAction(formData: FormData): Promise<{ success: boolean; error?: string; slug?: string }> {
+function buildCleanSlug(name: string, fallbackCode: string): string {
+  const ascii = name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const suffix = Math.floor(100 + Math.random() * 900);
+  if (ascii.length >= 2) {
+    return `${ascii}-${suffix}`;
+  }
+  return `card-${fallbackCode.toLowerCase()}-${suffix}`;
+}
+
+export async function activateCardAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string; slug?: string }> {
   try {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey || serviceRoleKey.includes('placeholder')) {
+    const env = getServerSupabaseEnv();
+    if (!env.isAdminConfigured || !env.isAuthConfigured) {
       return {
         success: false,
-        error: 'خطأ إعدادات النظام: مفتاح الخدمة SUPABASE_SERVICE_ROLE_KEY غير مضبوط في بيئة العمل (Environment Variables). يرجى إضافته في إعدادات Vercel.',
+        error: `إعدادات النظام غير مكتملة (${env.missingVars.join(', ')}). يرجى إضافتها في Vercel.`,
       };
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const supabaseAdmin = getSupabaseAdmin();
+    const supabase = await createSupabaseServerClient();
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options: any }>) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
-        },
-      },
-    });
+    // 1. Check current authenticated user OR perform inline 1-step signup/signin
+    let {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return { success: false, error: 'يجب تسجيل الدخول لتفعيل الكارت' };
+    if (!user) {
+      const accountEmail = (formData.get('account_email')?.toString() || '').trim().toLowerCase();
+      const accountPassword = formData.get('account_password')?.toString() || '';
+      const authMode = formData.get('auth_mode')?.toString() === 'signin' ? 'signin' : 'signup';
+      const displayName = (formData.get('full_name')?.toString() || '').trim();
+
+      if (!accountEmail || !accountPassword) {
+        return {
+          success: false,
+          error: 'أدخل بريدك الإلكتروني وكلمة مرور (6 خانات على الأقل) لحفظ ملكية الكارت في حسابك.',
+        };
+      }
+
+      if (accountPassword.length < 6) {
+        return {
+          success: false,
+          error: 'كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.',
+        };
+      }
+
+      if (authMode === 'signup') {
+        const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email: accountEmail,
+          password: accountPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: displayName || 'صاحب الكارت',
+            account_kind: 'individual',
+          },
+        });
+
+        // If user already exists, gracefully try signing in with the provided password
+        if (createErr && !createErr.message.toLowerCase().includes('already')) {
+          return {
+            success: false,
+            error: `تعذر إنشاء الحساب: ${createErr.message}`,
+          };
+        }
+      }
+
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: accountEmail,
+        password: accountPassword,
+      });
+
+      if (signInErr || !signInData.user) {
+        return {
+          success: false,
+          error:
+            authMode === 'signup'
+              ? 'هذا البريد مسجل مسبقاً بكلمة مرور مختلفة. اختر «لدي حساب بالفعل» وأدخل كلمة مرورك الصحيحة.'
+              : 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+        };
+      }
+
+      user = signInData.user;
     }
 
     const rawCode = formData.get('code')?.toString() || '';
     const code = rawCode.trim().toUpperCase();
-    const productType = formData.get('product_type')?.toString() || 'business';
-    const targetUrl = formData.get('target_url')?.toString()?.trim() || null;
-    const fullName = formData.get('full_name')?.toString()?.trim() || 'صاحب الكارت';
-    const jobTitle = formData.get('job_title')?.toString()?.trim() || null;
-    const company = formData.get('company')?.toString()?.trim() || null;
-    const phone = formData.get('phone')?.toString()?.trim() || null;
-    const whatsapp = formData.get('whatsapp')?.toString()?.trim() || null;
-    const email = formData.get('email')?.toString()?.trim() || null;
-    const avatarUrl = formData.get('avatar_url')?.toString()?.trim() || null;
+    const productType = formData.get('product_type')?.toString() === 'review' ? 'review' : 'business';
+    const targetUrl = normalizeUrl(formData.get('target_url')?.toString()) || null;
 
     if (!code) {
-      return { success: false, error: 'كود الكارت غير صالح' };
+      return { success: false, error: 'كود الكارت غير صالح.' };
     }
 
-    // 1. Fetch card using admin client
+    // 2. Fetch card + any pre-provisioned business_card
     const { data: card, error: cardErr } = await supabaseAdmin
       .from('cards')
       .select('*')
@@ -66,100 +125,147 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
       .single();
 
     if (cardErr || !card) {
-      return { success: false, error: `الكارت غير موجود في النظام (${cardErr?.message || 'not found'})` };
+      return { success: false, error: 'هذا الكارت غير مسجل في النظام.' };
     }
 
-    if (card.status === 'active' && card.owner_id && card.owner_id !== user.id) {
-      return { success: false, error: 'هذا الكارت مسجل بالفعل لمستخدم آخر' };
+    const { data: existingBc } = await supabaseAdmin
+      .from('business_cards')
+      .select('*')
+      .eq('card_id', card.id)
+      .maybeSingle();
+
+    const existingSocials = parseSocialLinks(existingBc?.social_links);
+    const isAdminProvisioned = Boolean(existingSocials.admin_provisioned);
+
+    // Block takeover ONLY if card already belongs to another real end-user (not unclaimed / not admin-provisioned)
+    if (
+      card.status === 'active' &&
+      card.owner_id &&
+      card.owner_id !== user.id &&
+      !isAdminProvisioned &&
+      !isSuperAdminEmail(user.email)
+    ) {
+      return {
+        success: false,
+        error: 'هذا الكارت مفعل ومرتبط بحساب عميل آخر بالفعل. سجل الدخول بحساب مالك الكارت لتعديله.',
+      };
     }
 
-    // 2. Update card ownership and status
+    // 3. Bind card ownership and active status
     const { error: updateErr } = await supabaseAdmin
       .from('cards')
       .update({
         owner_id: user.id,
         status: 'active',
         product: productType,
-        target_url: productType === 'review' ? targetUrl : null,
+        target_url: productType === 'review' ? targetUrl : card.target_url,
       })
       .eq('id', card.id);
 
     if (updateErr) {
-      console.error('Card update error details:', updateErr);
       return {
         success: false,
-        error: `فشل تحديث بيانات الكارت: ${updateErr.message} (code: ${updateErr.code})`,
+        error: `فشل ربط الكارت بالحساب: ${updateErr.message}`,
       };
     }
 
-    // 3. If business, create or update business_cards record
-    let slug = '';
+    // 4. Upsert rich business_cards profile when product === 'business'
+    let slug = existingBc?.slug || '';
     if (productType === 'business') {
-      slug = (fullName ? fullName : 'card')
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+      const fullName =
+        formData.get('full_name')?.toString()?.trim() ||
+        existingBc?.full_name ||
+        'صاحب الكارت';
+      const jobTitle = formData.get('job_title')?.toString()?.trim() ?? existingBc?.job_title ?? null;
+      const company = formData.get('company')?.toString()?.trim() ?? existingBc?.company ?? null;
+      const bio = formData.get('bio')?.toString()?.trim() ?? existingBc?.bio ?? null;
+      const phone = formData.get('phone')?.toString()?.trim() ?? existingBc?.phone ?? null;
+      const phone2 = formData.get('phone2')?.toString()?.trim() ?? existingSocials.phone2 ?? '';
+      const whatsapp =
+        formData.get('whatsapp')?.toString()?.trim() ||
+        existingBc?.whatsapp ||
+        phone ||
+        null;
+      const email = formData.get('email')?.toString()?.trim() ?? existingBc?.email ?? null;
+      const website = normalizeUrl(formData.get('website')?.toString()) ?? existingBc?.website ?? null;
+      const avatarUrl = formData.get('avatar_url')?.toString()?.trim() || existingBc?.avatar_url || null;
 
-      const { data: existingBc } = await supabaseAdmin
-        .from('business_cards')
-        .select('slug')
-        .eq('card_id', card.id)
-        .single();
+      const updatedSocials: CardSocialLinks = {
+        ...existingSocials,
+        phone2: phone2 || undefined,
+        linkedin: normalizeUrl(formData.get('linkedin')?.toString()) ?? existingSocials.linkedin,
+        facebook: normalizeUrl(formData.get('facebook')?.toString()) ?? existingSocials.facebook,
+        instagram: normalizeUrl(formData.get('instagram')?.toString()) ?? existingSocials.instagram,
+        tiktok: normalizeUrl(formData.get('tiktok')?.toString()) ?? existingSocials.tiktok,
+        telegram: normalizeUrl(formData.get('telegram')?.toString()) ?? existingSocials.telegram,
+        surface_theme:
+          (formData.get('surface_theme')?.toString() as CardSurfaceTheme | undefined) ||
+          existingSocials.surface_theme ||
+          'obsidian',
+        admin_provisioned: false, // Now claimed by actual owner
+      };
 
-      if (existingBc?.slug) {
+      if (existingBc?.id) {
         slug = existingBc.slug;
-        const updatePayload: any = {
-          full_name: fullName,
-          job_title: jobTitle,
-          company,
-          phone,
-          whatsapp,
-          email,
-          is_active: true,
-        };
-        if (avatarUrl) {
-          updatePayload.avatar_url = avatarUrl;
-        }
-
         const { error: bcUpdateErr } = await supabaseAdmin
           .from('business_cards')
-          .update(updatePayload)
-          .eq('card_id', card.id);
+          .update({
+            full_name: fullName,
+            job_title: jobTitle || null,
+            company: company || null,
+            bio: bio || null,
+            phone: phone || null,
+            whatsapp: whatsapp || null,
+            email: email || null,
+            website: website || null,
+            avatar_url: avatarUrl,
+            social_links: updatedSocials,
+            is_active: true,
+          })
+          .eq('id', existingBc.id);
 
         if (bcUpdateErr) {
-          console.error('Business card update error:', bcUpdateErr);
+          return {
+            success: false,
+            error: `فشل تحديث بيانات البطاقة: ${bcUpdateErr.message}`,
+          };
         }
       } else {
-        const insertPayload: any = {
+        slug = buildCleanSlug(fullName, code);
+        const { error: bcInsertErr } = await supabaseAdmin.from('business_cards').insert({
           card_id: card.id,
           slug,
           full_name: fullName,
-          job_title: jobTitle,
-          company,
-          phone,
-          whatsapp,
-          email,
+          job_title: jobTitle || null,
+          company: company || null,
+          bio: bio || null,
+          phone: phone || null,
+          whatsapp: whatsapp || null,
+          email: email || null,
+          website: website || null,
+          avatar_url: avatarUrl,
+          theme_color: '#181818',
+          social_links: updatedSocials,
           is_active: true,
-        };
-        if (avatarUrl) {
-          insertPayload.avatar_url = avatarUrl;
-        }
+        });
 
-        const { error: bcErr } = await supabaseAdmin.from('business_cards').insert(insertPayload);
-
-        if (bcErr) {
-          console.error('Business card insert error:', bcErr);
+        if (bcInsertErr) {
           return {
             success: false,
-            error: `فشل إنشاء تفاصيل كارت الأعمال: ${bcErr.message} (code: ${bcErr.code})`,
+            error: `فشل إنشاء صفحة الكارت: ${bcInsertErr.message}`,
           };
         }
       }
     }
 
+    revalidatePath('/dashboard');
+    revalidatePath(`/activate/${code}`);
+    if (slug) revalidatePath(`/c/${slug}`);
+
     return { success: true, slug };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('activateCardAction error:', err);
-    return { success: false, error: err.message || 'حدث خطأ غير متوقع أثناء تفعيل الكارت' };
+    const message = err instanceof Error ? err.message : 'حدث خطأ غير متوقع أثناء تفعيل الكارت';
+    return { success: false, error: message };
   }
 }

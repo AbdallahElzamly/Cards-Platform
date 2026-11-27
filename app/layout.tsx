@@ -4,22 +4,21 @@ import './globals.css';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-cairo',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'كروت الولاء الذكية للمطاعم والكافيهات | NFC & QR',
+  title: 'KUWI | منصة كروت الأعمال الذكية وأسطول الشركات ونظام الولاء',
   description:
-    'نظام ولاء العملاء الفوري عبر شرائح NFC ورموز QR بدون تحميل تطبيقات أو رسائل SMS — اجمع زياراتك واحصل على مكافأتك مجاناً.',
+    'شارك هويتك الرقمية بلمسة NFC واحدة، وأدر كروت موظفي شركتك والعملاء المحتملين، أو شغّل نظام ولاء مطعمك بدون تطبيقات.',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: '#0f172a',
+  themeColor: '#000000',
 };
 
 export default function RootLayout({
@@ -29,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
-      <body className="font-sans min-h-full flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
+      <body className="font-sans min-h-full flex flex-col bg-[#FAFAFA] text-neutral-950 selection:bg-neutral-900 selection:text-white">
         {children}
       </body>
     </html>

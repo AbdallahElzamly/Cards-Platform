@@ -2,25 +2,43 @@
 
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/types/smart-cards';
+import { BusinessCard, Card, parseSocialLinks } from '@/types/smart-cards';
 import { activateCardAction } from '@/app/actions/cards';
 
 interface ActivateCardClientProps {
   card: Card;
   code: string;
+  existingBusinessCard?: BusinessCard | null;
+  currentUserEmail?: string | null;
 }
 
-export default function ActivateCardClient({ card, code }: ActivateCardClientProps) {
+export default function ActivateCardClient({
+  card,
+  code,
+  existingBusinessCard,
+  currentUserEmail,
+}: ActivateCardClientProps) {
   const router = useRouter();
+  const socials = parseSocialLinks(existingBusinessCard?.social_links);
 
-  const [productType, setProductType] = useState<'business' | 'review'>(card.product === 'review' ? 'review' : 'business');
-  const [fullName, setFullName] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [phone, setPhone] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [email, setEmail] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+
+  const [productType, setProductType] = useState<'business' | 'review'>(
+    card.product === 'review' ? 'review' : 'business'
+  );
+  const [fullName, setFullName] = useState(existingBusinessCard?.full_name || '');
+  const [jobTitle, setJobTitle] = useState(existingBusinessCard?.job_title || '');
+  const [company, setCompany] = useState(existingBusinessCard?.company || '');
+  const [phone, setPhone] = useState(existingBusinessCard?.phone || '');
+  const [phone2, setPhone2] = useState(socials.phone2 || '');
+  const [whatsapp, setWhatsapp] = useState(existingBusinessCard?.whatsapp || '');
+  const [email, setEmail] = useState(existingBusinessCard?.email || '');
+  const [linkedin, setLinkedin] = useState(socials.linkedin || '');
+  const [instagram, setInstagram] = useState(socials.instagram || '');
+  const [facebook, setFacebook] = useState(socials.facebook || '');
+  const [avatarUrl, setAvatarUrl] = useState(existingBusinessCard?.avatar_url || '');
   const [targetUrl, setTargetUrl] = useState(card.target_url || '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -30,7 +48,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('حجم الصورة كبير جداً (الحد الأقصى 2 ميجابايت)');
+      setErrorMsg('حجم الصورة كبير، الحد الأقصى 2 ميجابايت.');
       return;
     }
 
@@ -51,6 +69,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
     const formData = new FormData(e.currentTarget);
     formData.set('code', code);
     formData.set('product_type', productType);
+    formData.set('auth_mode', authMode);
     if (avatarUrl) {
       formData.set('avatar_url', avatarUrl);
     }
@@ -58,127 +77,295 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
     startTransition(async () => {
       const res = await activateCardAction(formData);
       if (!res.success) {
-        setErrorMsg(res.error || 'فشل تفعيل الكارت');
+        setErrorMsg(res.error || 'تعذر تفعيل الكارت');
+      } else if (productType === 'business' && res.slug) {
+        router.push(`/c/${res.slug}`);
       } else {
-        if (productType === 'business' && res.slug) {
-          router.push(`/c/${res.slug}`);
-        } else {
-          router.push('/dashboard');
-        }
+        router.push('/dashboard');
       }
     });
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 p-8">
-        
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl">
-            ⚡
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center py-8 px-4 font-sans" dir="rtl">
+      <div className="max-w-lg w-full bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 shadow-sm">
+        <div className="mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-xs font-mono text-neutral-700 mb-3">
+            <span>KUWI CARD</span>
+            <span>•</span>
+            <span>{code}</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 mb-1">تفعيل الكارت الذكي</h1>
-          <p className="text-xs text-slate-500 font-mono">
-            الكود: {code}
+          <h1 className="text-2xl font-semibold text-neutral-950 mb-1">
+            {existingBusinessCard ? 'استلام ملكية وتفعيل كرتك الذكي' : 'تفعيل كرتك الذكي في خطوة واحدة'}
+          </h1>
+          <p className="text-sm text-neutral-500 leading-relaxed">
+            {existingBusinessCard
+              ? 'بيانات كرتك جاهزة! أنشئ حسابك أدناه لربط الكارت ببريدك وتعديله بنفسك في أي وقت.'
+              : 'أدخل بياناتك وأنشئ حسابك لتفعيل الكارت والتحكم فيه من لوحتك الخاصة فوراً.'}
           </p>
         </div>
 
         {errorMsg && (
-          <div className="p-3.5 mb-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-semibold text-center">
+          <div className="p-3.5 mb-5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-medium text-center">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Step A: Inline Account Creation / Login when visitor is not signed in */}
+          {!currentUserEmail ? (
+            <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-2xl flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-900">
+                  1. حساب مالك الكارت (للتعديل لاحقاً)
+                </span>
+                <div className="flex gap-1 bg-white p-0.5 rounded-lg border border-neutral-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('signup')}
+                    className={`px-2.5 py-1 rounded-md font-medium cursor-pointer ${
+                      authMode === 'signup' ? 'bg-[#181818] text-white' : 'text-neutral-600'
+                    }`}
+                  >
+                    حساب جديد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('signin')}
+                    className={`px-2.5 py-1 rounded-md font-medium cursor-pointer ${
+                      authMode === 'signin' ? 'bg-[#181818] text-white' : 'text-neutral-600'
+                    }`}
+                  >
+                    لدي حساب
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-600 mb-1">
+                    البريد الإلكتروني للحساب
+                  </label>
+                  <input
+                    type="email"
+                    name="account_email"
+                    required
+                    dir="ltr"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl text-sm font-mono text-left focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-600 mb-1">
+                    كلمة المرور
+                  </label>
+                  <input
+                    type="password"
+                    name="account_password"
+                    required
+                    minLength={6}
+                    dir="ltr"
+                    value={accountPassword}
+                    onChange={(e) => setAccountPassword(e.target.value)}
+                    placeholder="6 خانات على الأقل"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl text-sm font-mono text-left focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 font-medium">
+              سيتم ربط ملكية هذا الكارت بحسابك الحالي ({currentUserEmail})
+            </div>
+          )}
+
+          {/* Step B: Card Product Type */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">نوع الكارت</label>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+              وظيفة الكارت
+            </label>
             <select
               value={productType}
-              onChange={(e) => setProductType(e.target.value as any)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none"
+              onChange={(e) => setProductType(e.target.value as 'business' | 'review')}
+              className="w-full min-h-[46px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-950 text-sm focus:outline-none focus:border-neutral-900"
             >
-              <option value="business">كارت أعمال ذكي (Smart Business Card)</option>
-              <option value="review">كارت تقييم جوجل (Google Review Card)</option>
+              <option value="business">كارت أعمال شخصي ذكي (Smart Business Card)</option>
+              <option value="review">كارت تقييمات خرائط جوجل (Google Reviews)</option>
             </select>
           </div>
 
           {productType === 'business' ? (
-            <>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">الاسم الكامل</label>
-                <input
-                  type="text"
-                  name="full_name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="محمد أحمد"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">المسمى الوظيفي</label>
-                <input
-                  type="text"
-                  name="job_title"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="مدير مبيعات"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">اسم الشركة / النشاط</label>
-                <input
-                  type="text"
-                  name="company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="شركة التقنية المتقدمة"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">رقم الموبايل</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  dir="ltr"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01012345678"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none text-right font-mono"
-                />
-              </div>
-
-              {/* Profile Photo / Avatar Support */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">الصورة الشخصية / الشعار (Avatar)</label>
-                <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    الاسم الكامل الظاهر على الكارت
+                  </label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageFileChange}
-                    className="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    type="text"
+                    name="full_name"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="مثال: Eng. Ahmed Wasim"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:border-neutral-900"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    المسمى الوظيفي / التخصص
+                  </label>
+                  <input
+                    type="text"
+                    name="job_title"
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    placeholder="Electrical Power Engineer"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    الشركة / الجهة
+                  </label>
+                  <input
+                    type="text"
+                    name="company"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    placeholder="اسم الشركة أو الجامعة"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رقم الموبايل الأساسي
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    dir="ltr"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="011xxxxxxxx"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono text-right focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رقم موبايل إضافي (اختياري)
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone2"
+                    dir="ltr"
+                    value={phone2}
+                    onChange={(e) => setPhone2(e.target.value)}
+                    placeholder="010xxxxxxxx"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono text-right focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رقم واتساب
+                  </label>
+                  <input
+                    type="tel"
+                    name="whatsapp"
+                    dir="ltr"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="011xxxxxxxx"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono text-right focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    البريد العام للكارت (اختياري)
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    dir="ltr"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="contact@domain.com"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono text-right focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رابط LinkedIn
+                  </label>
                   <input
                     type="url"
-                    name="avatar_url"
+                    name="linkedin"
                     dir="ltr"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="أو أدخل رابط صورة مباشر https://..."
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-right"
+                    value={linkedin}
+                    onChange={(e) => setLinkedin(e.target.value)}
+                    placeholder="https://www.linkedin.com/in/..."
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-mono text-left focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رابط Instagram
+                  </label>
+                  <input
+                    type="url"
+                    name="instagram"
+                    dir="ltr"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="https://instagram.com/..."
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-mono text-left focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    رابط Facebook
+                  </label>
+                  <input
+                    type="url"
+                    name="facebook"
+                    dir="ltr"
+                    value={facebook}
+                    onChange={(e) => setFacebook(e.target.value)}
+                    placeholder="https://facebook.com/..."
+                    className="w-full min-h-[46px] px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-mono text-left focus:outline-none focus:border-neutral-900"
                   />
                 </div>
               </div>
-            </>
+
+              {/* Profile Photo */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                  الصورة الشخصية أو الشعار (اختياري)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageFileChange}
+                  className="w-full text-xs text-neutral-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-neutral-100 file:text-neutral-900 hover:file:bg-neutral-200"
+                />
+              </div>
+            </div>
           ) : (
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">رابط تقييم جوجل (Google Maps Review URL)</label>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                رابط تقييم النشاط على خرائط جوجل
+              </label>
               <input
                 type="url"
                 name="target_url"
@@ -187,7 +374,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                 value={targetUrl}
                 onChange={(e) => setTargetUrl(e.target.value)}
                 placeholder="https://g.page/r/..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none text-right font-mono"
+                className="w-full min-h-[46px] px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-950 text-sm font-mono text-left focus:outline-none focus:border-neutral-900"
               />
             </div>
           )}
@@ -195,12 +382,11 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-md transition text-sm mt-2"
+            className="w-full min-h-[50px] py-3.5 bg-[#181818] hover:bg-neutral-800 active:scale-[0.98] text-white font-semibold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] text-sm cursor-pointer"
           >
-            {isPending ? 'جاري التفعيل...' : 'تفعيل وربط الكارت 🚀'}
+            {isPending ? 'جاري التفعيل وربط الكارت...' : 'حفظ وتفعيل الكارت الآن'}
           </button>
         </form>
-
       </div>
     </div>
   );

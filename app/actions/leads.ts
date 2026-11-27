@@ -10,10 +10,9 @@ export async function submitCardLeadAction(formData: FormData): Promise<{ succes
     const visitorNote = formData.get('visitor_note')?.toString()?.trim() || null;
 
     if (!businessCardId || !visitorName || !visitorPhone) {
-      return { success: false, error: 'جميع الحكام الأساسية (الاسم ورقم الموبايل) مطلوبة' };
+      return { success: false, error: 'الاسم ورقم الموبايل مطلوبان.' };
     }
 
-    // Verify business card exists
     const { data: bc, error: bcErr } = await supabaseAdmin
       .from('business_cards')
       .select('id')
@@ -21,10 +20,9 @@ export async function submitCardLeadAction(formData: FormData): Promise<{ succes
       .single();
 
     if (bcErr || !bc) {
-      return { success: false, error: 'كارت الأعمال غير موجود أو غير نشط' };
+      return { success: false, error: 'كارت الأعمال غير موجود أو غير نشط.' };
     }
 
-    // Insert lead using supabaseAdmin (bypassing browser RLS blocks)
     const { error: insertErr } = await supabaseAdmin.from('card_leads').insert({
       business_card_id: businessCardId,
       visitor_name: visitorName,
@@ -38,8 +36,9 @@ export async function submitCardLeadAction(formData: FormData): Promise<{ succes
     }
 
     return { success: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('submitCardLeadAction unexpected error:', err);
-    return { success: false, error: err.message || 'حدث خطأ أثناء إرسال البيانات' };
+    const message = err instanceof Error ? err.message : 'حدث خطأ أثناء إرسال البيانات';
+    return { success: false, error: message };
   }
 }

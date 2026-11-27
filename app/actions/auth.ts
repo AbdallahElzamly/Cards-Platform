@@ -2,7 +2,10 @@
 
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
+
+export type AccountKind = 'individual' | 'company' | 'merchant';
 
 export interface AuthActionResult {
   success: boolean;
@@ -20,13 +23,13 @@ function mapSupabaseAuthError(err: unknown): string {
     return `متغيرات الاتصال بقاعدة البيانات غير مضبوطة على السيرفر (${vars}). يرجى إضافتها في Vercel ثم عمل Redeploy.`;
   }
   if (lower.includes('invalid login credentials')) {
-    return 'البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من البيانات أو أنشئ حساب تاجر جديد.';
+    return 'البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من البيانات أو أنشئ حساباً جديداً.';
   }
   if (lower.includes('email not confirmed')) {
-    return 'يرجى تفعيل حسابك من الرابط المرسل لبريدك الإلكتروني أولاً، أو إيقاف Confirm Email من إعدادات Supabase Auth.';
+    return 'يرجى تفعيل حسابك من الرابط المرسل لبريدك الإلكتروني، أو حاول تسجيل الدخول مرة أخرى.';
   }
-  if (lower.includes('user already registered')) {
-    return 'هذا البريد مسجل بالفعل، يمكنك تسجيل الدخول مباشرة.';
+  if (lower.includes('user already registered') || lower.includes('already been registered')) {
+    return 'هذا البريد مسجل بالفعل، انتقل لتبويب «تسجيل الدخول» وادخل مباشرة.';
   }
   if (lower.includes('password should be at least')) {
     return 'كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.';
@@ -63,10 +66,30 @@ export async function merchantSignInAction(
     }
 
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
+    let { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
     });
+
+    // Auto-heal unconfirmed accounts when service_role is available
+    if (error && error.message.toLowerCase().includes('email not confirmed') && env.isAdminConfigured) {
+      try {
+        const admin = getSupabaseAdmin();
+        const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
+        const targetUser = usersList?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
+        if (targetUser) {
+          await admin.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
+          const retry = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password,
+          });
+          data = retry.data;
+          error = retry.error;
+        }
+      } catch (healErr) {
+        console.warn('Auto-confirm heal skipped:', healErr);
+      }
+    }
 
     if (error || !data.user) {
       return {
@@ -77,7 +100,7 @@ export async function merchantSignInAction(
 
     return {
       success: true,
-      message: 'تم تسجيل الدخول بنجاح! جارٍ فتح لوحة التحكم...',
+      message: 'تم تسجيل الدخول بنجاح. جارٍ فتح لوحة التحكم...',
     };
   } catch (err) {
     console.error('merchantSignInAction error:', err);
@@ -91,7 +114,8 @@ export async function merchantSignInAction(
 export async function merchantSignUpAction(
   email: string,
   password: string,
-  businessName?: string
+  displayName?: string,
+  accountKind: AccountKind = 'individual'
 ): Promise<AuthActionResult> {
   try {
     const env = getServerSupabaseEnv();
@@ -110,13 +134,86 @@ export async function merchantSignUpAction(
       };
     }
 
+    const trimmedName = displayName?.trim().slice(0, 80) || '';
     const supabase = await createSupabaseServerClient();
+
+    // Fast path: create pre-confirmed user via Admin API (avoids SMTP limits & confirmation friction)
+    if (env.isAdminConfigured) {
+      const admin = getSupabaseAdmin();
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email: cleanEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: trimmedName || undefined,
+          business_name: trimmedName || 'نشاطي',
+          account_kind: accountKind,
+        },
+      });
+
+      if (createErr) {
+        return {
+          success: false,
+          error: mapSupabaseAuthError(createErr),
+        };
+      }
+
+      // If company account, ensure a starter company workspace exists if name was given
+      if (accountKind === 'company' && trimmedName && created.user) {
+        try {
+          const { data: existingCo } = await admin
+            .from('companies')
+            .select('id')
+            .eq('contact_email', cleanEmail)
+            .maybeSingle();
+
+          if (!existingCo) {
+            const baseSlug =
+              trimmedName
+                .toLowerCase()
+                .replace(/\s+/g, '-')
+                .replace(/[^\w\-]+/g, '') || 'org';
+            const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const batchName = `ORG-${slug.toUpperCase().slice(0, 12)}`;
+            await admin.from('companies').insert({
+              name: trimmedName,
+              slug,
+              contact_email: cleanEmail,
+              batch_name: batchName,
+            });
+          }
+        } catch (coErr) {
+          console.warn('Starter company creation skipped:', coErr);
+        }
+      }
+
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (signInErr) {
+        return {
+          success: false,
+          error: mapSupabaseAuthError(signInErr),
+        };
+      }
+
+      return {
+        success: true,
+        message: 'تم إنشاء حسابك وتسجيل الدخول فوراً.',
+      };
+    }
+
+    // Fallback when only anon/publishable key is configured
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
       options: {
         data: {
-          business_name: businessName?.trim().slice(0, 60) || 'مطعمي',
+          full_name: trimmedName || undefined,
+          business_name: trimmedName || 'نشاطي',
+          account_kind: accountKind,
         },
       },
     });
@@ -132,14 +229,13 @@ export async function merchantSignUpAction(
       return {
         success: true,
         requiresEmailConfirmation: true,
-        message:
-          'تم إنشاء الحساب بنجاح! تفقد بريدك الإلكتروني لتأكيد الحساب ثم قم بتسجيل الدخول.',
+        message: 'تم إنشاء الحساب بنجاح. تفقد بريدك الإلكتروني لتأكيد الحساب ثم سجل الدخول.',
       };
     }
 
     return {
       success: true,
-      message: 'تم إنشاء الحساب وتسجيل الدخول بنجاح! جارٍ تجهيز لوحة مطعمك...',
+      message: 'تم إنشاء الحساب وتسجيل الدخول بنجاح.',
     };
   } catch (err) {
     console.error('merchantSignUpAction error:', err);

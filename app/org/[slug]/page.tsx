@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import CompanyPortalClient from '@/components/company/CompanyPortalClient';
-import { Company, Card } from '@/types/smart-cards';
+import { BusinessCard, Card, CardLead, CardWithDetails, Company } from '@/types/smart-cards';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -16,61 +16,70 @@ export default async function CompanyPortalPage({ params }: PageProps) {
     notFound();
   }
 
-  // 1. Fetch company by slug
   const { data: company, error: coErr } = await supabaseAdmin
     .from('companies')
     .select('*')
     .eq('slug', slug)
-    .single();
+    .maybeSingle();
 
   if (coErr || !company) {
     notFound();
   }
 
-  // 2. Fetch cards belonging to company's batch_name (or all if batch_name is null)
-  let cardsQuery = supabaseAdmin.from('cards').select('*');
+  let cardsQuery = supabaseAdmin.from('cards').select('*').order('created_at', { ascending: false });
   if (company.batch_name) {
     cardsQuery = cardsQuery.eq('batch_name', company.batch_name);
   }
 
   const { data: rawCards } = await cardsQuery;
   const cards = rawCards || [];
+  const cardIds = cards.map((c: { id: string }) => c.id);
 
-  // 3. Enrich cards with business_card, scan count, and leads
-  const cardsWithDetails = await Promise.all(
-    cards.map(async (card: any) => {
-      let business_card = null;
-      let leads = [];
+  let cardsWithDetails: CardWithDetails[] = [];
 
-      const { data: bc } = await supabaseAdmin
-        .from('business_cards')
+  if (cardIds.length > 0) {
+    const [{ data: businessCards }, { data: scans }] = await Promise.all([
+      supabaseAdmin.from('business_cards').select('*').in('card_id', cardIds),
+      supabaseAdmin.from('scans').select('card_id').in('card_id', cardIds),
+    ]);
+
+    const bcByCardId = new Map<string, BusinessCard>();
+    const bcIds: string[] = [];
+    for (const bc of businessCards || []) {
+      bcByCardId.set(bc.card_id, bc as BusinessCard);
+      bcIds.push(bc.id);
+    }
+
+    const leadsByBcId = new Map<string, CardLead[]>();
+    if (bcIds.length > 0) {
+      const { data: allLeads } = await supabaseAdmin
+        .from('card_leads')
         .select('*')
-        .eq('card_id', card.id)
-        .single();
-      business_card = bc;
+        .in('business_card_id', bcIds)
+        .order('created_at', { ascending: false });
 
-      if (bc) {
-        const { data: lds } = await supabaseAdmin
-          .from('card_leads')
-          .select('*')
-          .eq('business_card_id', bc.id)
-          .order('created_at', { ascending: false });
-        leads = lds || [];
+      for (const lead of allLeads || []) {
+        const arr = leadsByBcId.get(lead.business_card_id) || [];
+        arr.push(lead as CardLead);
+        leadsByBcId.set(lead.business_card_id, arr);
       }
+    }
 
-      const { count: scan_count } = await supabaseAdmin
-        .from('scans')
-        .select('*', { count: 'exact', head: true })
-        .eq('card_id', card.id);
+    const scanCounts = new Map<string, number>();
+    for (const s of scans || []) {
+      scanCounts.set(s.card_id, (scanCounts.get(s.card_id) || 0) + 1);
+    }
 
+    cardsWithDetails = (cards as Card[]).map((card) => {
+      const bc = bcByCardId.get(card.id) || null;
       return {
         ...card,
-        business_card,
-        scan_count: scan_count || 0,
-        leads,
+        business_card: bc,
+        scan_count: scanCounts.get(card.id) || 0,
+        leads: bc ? leadsByBcId.get(bc.id) || [] : [],
       };
-    })
-  );
+    });
+  }
 
   return <CompanyPortalClient company={company as Company} cards={cardsWithDetails} />;
 }

@@ -1,88 +1,96 @@
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import Link from 'next/link';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getServerSupabaseEnv } from '@/lib/env';
+import { isSuperAdminEmail } from '@/lib/admin-auth';
 import { getAdminDashboardData } from '@/app/actions/admin';
 import AdminBatchDashboard from '@/components/admin/AdminBatchDashboard';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
-
 export default async function AdminPage() {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(supabaseUrl, supabaseKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    });
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !user.email) {
-      return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-          <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100">
-            <h1 className="text-xl font-bold text-slate-900 mb-2">يرجى تسجيل الدخول</h1>
-            <p className="text-sm text-slate-600 mb-6">يجب تسجيل الدخول بحساب مشرف النظام للوصول إلى هذه الصفحة.</p>
-            <a
-              href="/auth/login?redirect=/admin"
-              className="inline-block py-3 px-6 bg-blue-600 text-white font-bold rounded-xl text-xs"
-            >
-              تسجيل الدخول
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    const adminEmailsEnv = process.env.ADMIN_EMAILS || '';
-    const adminEmails = adminEmailsEnv
-      ? adminEmailsEnv.split(',').map((e) => e.trim().toLowerCase())
-      : ['admin@kuwi.com', 'admin@cards-platform.local'];
-
-    const isAdmin = adminEmails.includes(user.email.toLowerCase());
-
-    if (!isAdmin) {
-      return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-          <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100">
-            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-              ⛔
-            </div>
-            <h1 className="text-xl font-bold text-slate-900 mb-2">غير مصرح بالدخول</h1>
-            <p className="text-sm text-slate-600 mb-6">حسابك ({user.email}) ليس لديه صلاحيات مشرف النظام (Admin).</p>
-            <a
-              href="/dashboard"
-              className="inline-block py-3 px-6 bg-slate-900 text-white font-bold rounded-xl text-xs"
-            >
-              الذهاب للوحة التحكم العادية
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    const dashboardData = await getAdminDashboardData();
-
+  const env = getServerSupabaseEnv();
+  if (!env.isAuthConfigured) {
     return (
-      <AdminBatchDashboard
-        cards={dashboardData.cards}
-        batches={dashboardData.batches}
-        companies={dashboardData.companies}
-      />
-    );
-  } catch (err) {
-    console.error('AdminPage error:', err);
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100">
-          <h1 className="text-xl font-bold text-slate-900 mb-2">تعذر تحميل صفحة المشرف</h1>
-          <p className="text-sm text-slate-600">يرجى المحاولة لاحقاً.</p>
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center border border-neutral-200">
+          <h1 className="text-xl font-semibold text-neutral-950 mb-2">إعدادات البيئة غير مكتملة</h1>
+          <p className="text-sm text-neutral-600">تأكد من ضبط مفاتيح Supabase على Vercel.</p>
         </div>
       </div>
     );
   }
+
+  let userEmail: string | null = null;
+  let loadFailed = false;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userEmail = user?.email || null;
+  } catch (err) {
+    console.error('AdminPage auth error:', err);
+    loadFailed = true;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center border border-neutral-200">
+          <h1 className="text-xl font-semibold text-neutral-950 mb-2">تعذر تحميل لوحة المشرف</h1>
+          <p className="text-sm text-neutral-600">تأكد من ضبط SUPABASE_SERVICE_ROLE_KEY ثم حاول مجدداً.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userEmail) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center border border-neutral-200">
+          <h1 className="text-xl font-semibold text-neutral-950 mb-2">تسجيل دخول المشرف</h1>
+          <p className="text-sm text-neutral-600 mb-6">
+            يرجى تسجيل الدخول بحساب مشرف المنصة للوصول إلى مركز التجهيز والإدارة.
+          </p>
+          <Link
+            href="/auth/login?redirect=/admin"
+            className="inline-flex min-h-[46px] items-center justify-center px-6 py-3 bg-[#181818] text-white font-semibold rounded-xl text-sm"
+          >
+            تسجيل الدخول الآن
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSuperAdminEmail(userEmail)) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center border border-neutral-200">
+          <h1 className="text-xl font-semibold text-neutral-950 mb-2">حساب غير مضاف كمشرف عام</h1>
+          <p className="text-sm text-neutral-600 mb-4 leading-relaxed">
+            أنت مسجل حالياً بالبريد (<span className="font-mono">{userEmail}</span>). لإدارة كروتك أو شركتك اذهب للوحة التحكم، أو أضف هذا البريد في متغير{' '}
+            <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">ADMIN_EMAILS</code> على Vercel.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-[46px] items-center justify-center px-6 py-3 bg-[#181818] text-white font-semibold rounded-xl text-sm"
+          >
+            الانتقال إلى لوحة التحكم
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const dashboardData = await getAdminDashboardData();
+
+  return (
+    <AdminBatchDashboard
+      cards={dashboardData.cards}
+      batches={dashboardData.batches}
+      companies={dashboardData.companies}
+    />
+  );
 }

@@ -111,11 +111,12 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
       .from('business_cards')
       .select('slug')
       .eq('card_id', card.id)
-      .single();
+      .maybeSingle();
 
     if (businessCard?.slug) {
       redirect(`/c/${businessCard.slug}`);
     }
+    redirect(`/activate/${encodeURIComponent(card.code)}`);
   }
 
   if (card.product === 'loyalty') {

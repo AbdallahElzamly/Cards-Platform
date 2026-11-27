@@ -4,8 +4,8 @@ import { getServerSupabaseEnv } from '@/lib/env';
 
 /**
  * Next.js 16 Proxy convention (replaces deprecated middleware.ts).
- * Refreshes Supabase SSR auth cookies on merchant dashboard & auth routes
- * without adding any latency to customer-facing NFC/QR routes (/l/*, /q/*).
+ * Refreshes Supabase SSR auth cookies across dashboards, admin, company portals,
+ * activation, and auth routes without adding latency to public NFC scans (/q/*, /c/*, /l/*).
  */
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -40,5 +40,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*'],
+  matcher: [
+    '/dashboard/:path*',
+    '/admin/:path*',
+    '/activate/:path*',
+    '/org/:path*',
+    '/auth/:path*',
+  ],
 };
