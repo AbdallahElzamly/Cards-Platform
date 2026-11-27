@@ -7,6 +7,7 @@ import {
   updateReviewCardTargetUrlAction,
   updateCardStatusModeAction,
   reassignCardCustodyAction,
+  transferCardOwnershipAction,
 } from '@/app/actions/dashboard';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
@@ -34,6 +35,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
   const [selectedCardId, setSelectedCardId] = useState<string>(cards[0]?.id || '');
   const [avatarUrl, setAvatarUrl] = useState<string>(cards[0]?.business_card?.avatar_url || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [transferEmail, setTransferEmail] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -180,7 +182,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
   const handleCustodyReassign = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedCard) return;
-    if (!window.confirm('هل أنت متأكد من إعادة تعيين الكارت للموظف الجديد؟ سيتم تطبيق البيانات وتحديث السجل.')) {
+    if (!window.confirm('هل أنت متأكد من إعادة تعيين الكارت للموظف الجديد؟')) {
       return;
     }
 
@@ -194,6 +196,31 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
         setErrorMsg(res.error || 'فشل نقل عهدة الكارت');
       } else {
         setSuccessMsg('تم نقل عهدة الكارت وتحديث بيانات الموظف بنجاح! 🔄');
+      }
+    });
+  };
+
+  const handleTransferOwnership = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedCard) return;
+    if (!transferEmail.trim()) {
+      setErrorMsg('يرجى إدخال بريد العميل الإلكتروني');
+      return;
+    }
+    if (!window.confirm(`هل أنت متأكد من نقل ملكية هذا الكارت إلى (${transferEmail})؟ لن يظهر الكارت في لوحتك بعد الآن.`)) {
+      return;
+    }
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    startTransition(async () => {
+      const res = await transferCardOwnershipAction(selectedCard.id, transferEmail);
+      if (!res.success) {
+        setErrorMsg(res.error || 'فشل نقل الملكية');
+      } else {
+        setSuccessMsg(`تم نقل ملكية الكارت إلى (${transferEmail}) بنجاح! 👑`);
+        setTransferEmail('');
       }
     });
   };
@@ -610,8 +637,35 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                       </div>
                     </form>
 
-                    {/* Custody Reassignment & Employee Transfer Section */}
+                    {/* Ownership Transfer Section */}
                     <div className="mt-8 pt-6 border-t border-slate-200">
+                      <h4 className="text-sm font-bold text-slate-900 mb-2">نقل ملكية الكارت لحساب عميل (Ownership Transfer)</h4>
+                      <p className="text-xs text-slate-500 mb-4">
+                        إذا قمت بتهيئة الكارت نيابة عن العميل، يمكنك نقل ملكيته بالكامل إلى بريده الإلكتروني المسجل في المنصة.
+                      </p>
+
+                      <form onSubmit={handleTransferOwnership} className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex flex-col sm:flex-row gap-3 items-center">
+                        <input
+                          type="email"
+                          required
+                          dir="ltr"
+                          value={transferEmail}
+                          onChange={(e) => setTransferEmail(e.target.value)}
+                          placeholder="client@example.com"
+                          className="w-full sm:flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-right font-mono"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isPending}
+                          className="w-full sm:w-auto py-2.5 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm transition whitespace-nowrap"
+                        >
+                          نقل الملكية للعميل 👑
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Custody Reassignment & Employee Transfer Section */}
+                    <div className="mt-6 pt-6 border-t border-slate-200">
                       <h4 className="text-sm font-bold text-slate-900 mb-2">إعادة تعيين الكارت لموظف جديد (Custody Transfer)</h4>
                       <p className="text-xs text-slate-500 mb-4">
                         نقل عهدة هذا الكارت لموظف جديد في الشركة مع تحديث بياناته وأرشفة السجل القديم.

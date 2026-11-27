@@ -148,7 +148,6 @@ export async function updateCardStatusModeAction(cardId: string, status: CardSta
     if (error) throw error;
 
     revalidatePath('/dashboard');
-    revalidatePath(`/q/`);
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || 'فشل تغيير حالة الكارت' };
@@ -171,13 +170,11 @@ export async function reassignCardCustodyAction(
       return { success: false, error: 'غير مسموح' };
     }
 
-    // 1. Update business card profile details
     const updateRes = await updateBusinessCardAction(cardId, formData);
     if (!updateRes.success) {
       return updateRes;
     }
 
-    // 2. If clearLeads is true, delete leads for this business card
     if (clearLeads) {
       const { data: bc } = await supabaseAdmin.from('business_cards').select('id').eq('card_id', cardId).single();
       if (bc) {
@@ -190,5 +187,53 @@ export async function reassignCardCustodyAction(
   } catch (err: any) {
     console.error('reassignCardCustodyAction error:', err);
     return { success: false, error: err.message || 'فشل إعادة تعيين الكارت' };
+  }
+}
+
+export async function transferCardOwnershipAction(
+  cardId: string,
+  recipientEmail: string
+): Promise<{ success: boolean; error?: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return { success: false, error: 'يجب تسجيل الدخول' };
+  }
+
+  try {
+    const { data: card } = await supabaseAdmin.from('cards').select('id, owner_id').eq('id', cardId).single();
+    if (!card || card.owner_id !== user.id) {
+      return { success: false, error: 'غير مسموح. أنت لست مالك هذا الكارت' };
+    }
+
+    const email = recipientEmail.trim().toLowerCase();
+    if (!email) {
+      return { success: false, error: 'يرجى إدخال بريد الكارت الإلكتروني للعميل' };
+    }
+
+    // Find user by email using supabaseAdmin auth API
+    const { data: listUsersData, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+    if (listErr) {
+      console.error('Error listing users for transfer:', listErr);
+      return { success: false, error: 'تعذر العثور على حساب العميل' };
+    }
+
+    const recipient = listUsersData?.users?.find((u) => u.email?.toLowerCase() === email);
+    if (!recipient) {
+      return { success: false, error: `لم يتم العثور على حساب مسجل بالبريد (${email}). يرجى طلب من العميل التسجيل أولاً.` };
+    }
+
+    // Update card ownership
+    const { error: updateErr } = await supabaseAdmin
+      .from('cards')
+      .update({ owner_id: recipient.id })
+      .eq('id', cardId);
+
+    if (updateErr) throw updateErr;
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (err: any) {
+    console.error('transferCardOwnershipAction error:', err);
+    return { success: false, error: err.message || 'فشل نقل ملكية الكارت' };
   }
 }

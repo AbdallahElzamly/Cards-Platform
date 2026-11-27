@@ -9,6 +9,19 @@ interface SmartBusinessCardClientProps {
   card: BusinessCard;
 }
 
+function getWhatsAppUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let cleaned = raw.replace(/\D/g, '');
+  if (cleaned.startsWith('00')) cleaned = cleaned.substring(2);
+  if (cleaned.length === 11 && cleaned.startsWith('01')) {
+    cleaned = '20' + cleaned.substring(1);
+  } else if (cleaned.length === 10 && cleaned.startsWith('1')) {
+    cleaned = '200' + cleaned.substring(1);
+  }
+  if (cleaned.length < 10) return null;
+  return `https://wa.me/${cleaned}`;
+}
+
 export default function SmartBusinessCardClient({ card }: SmartBusinessCardClientProps) {
   const searchParams = useSearchParams();
   const isLost = searchParams.get('lost') === 'true';
@@ -24,6 +37,8 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
 
   const visibleFields = (card.social_links as any)?.visible_fields || {};
   const isFieldVisible = (key: string) => visibleFields[key] !== false;
+
+  const whatsappUrl = getWhatsAppUrl(card.whatsapp);
 
   const handleLeadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,17 +76,17 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
       style={{ backgroundColor: card.theme_color || '#0F172A' }}
       dir="rtl"
     >
-      <div className="w-full max-w-[430px] bg-white/95 backdrop-blur-xl rounded-[32px] shadow-2xl shadow-black/20 overflow-hidden border border-white/40 p-6 sm:p-8 flex flex-col gap-6 transition-all">
+      <div className="w-full max-w-[430px] bg-white/95 backdrop-blur-2xl rounded-[36px] shadow-2xl shadow-black/30 overflow-hidden border border-white/40 p-6 sm:p-8 flex flex-col gap-6 transition-all">
         
         {isLost && (
-          <div className="p-4 bg-amber-500 text-slate-950 font-bold rounded-2xl text-xs text-center shadow-md animate-pulse">
+          <div className="p-4 bg-amber-400 text-slate-950 font-black rounded-2xl text-xs text-center shadow-md animate-pulse border border-amber-500">
             ⚠️ تنبيه: هذا الكارت مبلغ عن فقدانه. إذا عثرت عليه يرجى الاتصال بصاحبه أدناه.
           </div>
         )}
 
         {/* Profile Header */}
-        <div className="text-center relative flex flex-col items-center">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center text-3xl font-black text-slate-800 mb-4 ring-2 ring-slate-900/5">
+        <div className="text-center relative flex flex-col items-center pt-2">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center text-3xl font-black text-slate-800 mb-4 ring-2 ring-slate-900/10">
             {card.avatar_url && !imageError ? (
               <img
                 src={card.avatar_url}
@@ -101,7 +116,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
           )}
 
           {card.bio && isFieldVisible('bio') && (
-            <p className="text-xs text-slate-600 mt-3 px-2 leading-relaxed bg-slate-50 py-2.5 px-4 rounded-2xl border border-slate-100 w-full">
+            <p className="text-xs text-slate-600 mt-3 px-3 leading-relaxed bg-slate-50/80 py-3 rounded-2xl border border-slate-100 w-full text-center">
               {card.bio}
             </p>
           )}
@@ -112,17 +127,17 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
           {card.phone && isFieldVisible('phone') && (
             <a
               href={`tel:${card.phone}`}
-              className="py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+              className="py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-md shadow-blue-500/25 flex items-center justify-center gap-2"
             >
               <span>📞 اتصال مباشر</span>
             </a>
           )}
-          {card.whatsapp && isFieldVisible('whatsapp') && (
+          {whatsappUrl && isFieldVisible('whatsapp') && (
             <a
-              href={`https://wa.me/${card.whatsapp.replace(/\D/g, '')}`}
+              href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
+              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-md shadow-emerald-500/25 flex items-center justify-center gap-2"
             >
               <span>💬 واتساب</span>
             </a>
@@ -132,7 +147,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
         {/* Save Contact (.vcf) */}
         <a
           href={`/api/vcard/${card.slug}`}
-          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold rounded-2xl text-xs text-center transition-all shadow-lg shadow-slate-900/15 flex items-center justify-center gap-2"
         >
           <span>📥 حفظ جهة الاتصال (.vcf)</span>
         </a>
@@ -164,7 +179,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               <span className="font-semibold text-red-900">فودافون كاش</span>
               <button
                 onClick={() => copyToClipboard(card.vodafone_cash || '')}
-                className="font-mono text-red-600 font-bold hover:underline bg-white px-2.5 py-1 rounded-xl shadow-xs"
+                className="font-mono text-red-600 font-bold hover:underline bg-white px-3 py-1.5 rounded-xl shadow-xs"
               >
                 {copiedVodafone ? 'تم النسخ ✓' : card.vodafone_cash}
               </button>
@@ -184,7 +199,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
         </div>
 
         {/* Lead Capture Form: شارك بياناتك معي */}
-        <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/60 shadow-inner">
+        <div className="bg-slate-50/90 p-5 rounded-3xl border border-slate-200/60 shadow-inner">
           <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
             <span>📇</span>
             <span>شارك بياناتك معي</span>
