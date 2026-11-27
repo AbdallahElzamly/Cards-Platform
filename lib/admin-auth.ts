@@ -1,11 +1,9 @@
 import 'server-only';
 
+// Strictly lock Super Admin access to the Founder's primary email (+ explicit ADMIN_EMAILS env var).
+// Never add test or generic emails here so regular individual signups can never receive Admin privileges.
 const DEFAULT_SUPER_ADMIN_EMAILS = [
   'abdallahelzamly200393@gmail.com',
-  'abdallahelzamly@gmail.com',
-  '56141320+abdallahelzamly@users.noreply.github.com',
-  'admin@kuwi.com',
-  'admin@cards-platform.local',
 ];
 
 export function getSuperAdminEmails(): string[] {
