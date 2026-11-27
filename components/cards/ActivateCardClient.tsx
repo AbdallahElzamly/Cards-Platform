@@ -2,8 +2,8 @@
 
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
 import { Card } from '@/types/smart-cards';
+import { activateCardAction } from '@/app/actions/cards';
 
 interface ActivateCardClientProps {
   card: Card;
@@ -24,86 +24,24 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key'
-  );
-
-  const handleActivate = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg(null);
 
+    const formData = new FormData(e.currentTarget);
+    formData.set('code', code);
+    formData.set('product_type', productType);
+
     startTransition(async () => {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          router.push(`/auth/login?redirect=/activate/${encodeURIComponent(code)}`);
-          return;
-        }
-
-        if (card.status === 'active' && card.owner_id && card.owner_id !== user.id) {
-          setErrorMsg('هذا الكارت مسجل بالفعل لمستخدم آخر');
-          return;
-        }
-
-        // 1. Update card status & owner via Supabase browser client (respecting RLS or admin/update policies)
-        const { error: updateCardErr } = await supabase
-          .from('cards')
-          .update({
-            owner_id: user.id,
-            status: 'active',
-            product: productType,
-            target_url: productType === 'review' ? targetUrl : null,
-          })
-          .eq('id', card.id);
-
-        if (updateCardErr) throw updateCardErr;
-
-        // 2. If business, create business_card record if not exists
-        let cardSlug = '';
-        if (productType === 'business') {
-          cardSlug = (fullName.trim() ? fullName : 'card')
-            .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^\w\-]+/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
-
-          const { error: bcErr } = await supabase.from('business_cards').insert({
-            card_id: card.id,
-            slug: cardSlug,
-            full_name: fullName || 'صاحب الكارت',
-            job_title: jobTitle,
-            company,
-            phone,
-            whatsapp,
-            email,
-          });
-
-          if (bcErr) {
-            // If already exists, fetch slug
-            const { data: existingBc } = await supabase
-              .from('business_cards')
-              .select('slug')
-              .eq('card_id', card.id)
-              .single();
-            if (existingBc?.slug) {
-              cardSlug = existingBc.slug;
-            }
-          }
-        }
-
-        // Success redirect
-        if (productType === 'business' && cardSlug) {
-          router.push(`/c/${cardSlug}`);
+      const res = await activateCardAction(formData);
+      if (!res.success) {
+        setErrorMsg(res.error || 'فشل تفعيل الكارت');
+      } else {
+        if (productType === 'business' && res.slug) {
+          router.push(`/c/${res.slug}`);
         } else {
           router.push('/dashboard');
         }
-      } catch (err: any) {
-        console.error('Activation error:', err);
-        setErrorMsg(err.message || 'حدث خطأ أثناء تفعيل الكارت');
       }
     });
   };
@@ -128,7 +66,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
           </div>
         )}
 
-        <form onSubmit={handleActivate} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">نوع الكارت</label>
             <select
@@ -147,6 +85,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">الاسم الكامل</label>
                 <input
                   type="text"
+                  name="full_name"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -159,6 +98,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">المسمى الوظيفي</label>
                 <input
                   type="text"
+                  name="job_title"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   placeholder="مدير مبيعات"
@@ -170,6 +110,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">اسم الشركة / النشاط</label>
                 <input
                   type="text"
+                  name="company"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
                   placeholder="شركة التقنية المتقدمة"
@@ -181,6 +122,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">رقم الموبايل</label>
                 <input
                   type="tel"
+                  name="phone"
                   dir="ltr"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -194,6 +136,7 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
               <label className="block text-xs font-bold text-slate-700 mb-1.5">رابط تقييم جوجل (Google Maps Review URL)</label>
               <input
                 type="url"
+                name="target_url"
                 required
                 dir="ltr"
                 value={targetUrl}
