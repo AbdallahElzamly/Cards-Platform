@@ -1,17 +1,16 @@
-# Plan: Server-Side Card Activation Mutation Fix (`app/actions/cards.ts`)
+# Plan: Audit & Fix Card Activation `permission denied for table cards` Error
 
 ## Overview
-Ensure card activation runs 100% securely on the server via a server action (`'use server'`) using `supabaseAdmin` to avoid browser-side RLS `permission denied for table cards`.
+Investigate and resolve the `permission denied for table cards` error occurring during card activation on `/activate/[code]`.
 
-## Detailed Steps & File Plan
-1. **Server Action (`app/actions/cards.ts`):**
-   - Verify authenticated session via `createServerClient` + `supabase.auth.getUser()`.
-   - Normalize `code` (`code.trim().toUpperCase()`).
-   - Use `supabaseAdmin` to fetch the card and verify `status === 'unclaimed'`.
-   - Update `cards` (`owner_id = user.id`, `status = 'active'`, `product`, `target_url`).
-   - If `product === 'business'`, insert/link row in `business_cards` with unique slug and submitted details.
-2. **Client Component (`ActivateCardClient.tsx`):**
-   - Invoke `activateCardAction` server action on form submission.
-3. **Validation & Build:**
+## Detailed Audit & Plan
+1. **Codebase Audit:**
+   - Search all files for `.from('cards')` and `.from('business_cards')` to ensure no client-side (`'use client'`) component attempts direct table mutations.
+2. **Server Action Refinement (`app/actions/cards.ts`):**
+   - Ensure `supabaseAdmin` is instantiated cleanly using `process.env.SUPABASE_SERVICE_ROLE_KEY`. If `SUPABASE_SERVICE_ROLE_KEY` is missing or empty, return an explicit diagnostic error (`مفتاح الخدمة SUPABASE_SERVICE_ROLE_KEY غير مضبوط في البيئة`).
+   - Log and surface exact Supabase error properties (`error.message`, `error.code`, `error.details`) rather than generic messages.
+3. **Database / RLS / Trigger Inspection:**
+   - Review migration `supabase/migrations/20261127_smart_cards_platform.sql` to verify RLS policies and foreign key constraints on `cards` and `business_cards`.
+4. **Validation:**
    - Run `npx tsc --noEmit` and `npm run build`.
    - Commit and push to `main`.

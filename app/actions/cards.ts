@@ -2,15 +2,27 @@
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
 
 export async function activateCardAction(formData: FormData): Promise<{ success: boolean; error?: string; slug?: string }> {
   try {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey || serviceRoleKey.includes('placeholder')) {
+      return {
+        success: false,
+        error: 'خطأ إعدادات النظام: مفتاح الخدمة SUPABASE_SERVICE_ROLE_KEY غير مضبوط في بيئة العمل (Environment Variables). يرجى إضافته في إعدادات Vercel.',
+      };
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     const cookieStore = await cookies();
-    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -27,7 +39,7 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return { success: false, error: 'يجيب تسجيل الدخول لتفعيل الكارت' };
+      return { success: false, error: 'يجب تسجيل الدخول لتفعيل الكارت' };
     }
 
     const rawCode = formData.get('code')?.toString() || '';
@@ -45,7 +57,7 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
       return { success: false, error: 'كود الكارت غير صالح' };
     }
 
-    // 1. Fetch card using supabaseAdmin
+    // 1. Fetch card using admin client
     const { data: card, error: cardErr } = await supabaseAdmin
       .from('cards')
       .select('*')
@@ -53,7 +65,7 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
       .single();
 
     if (cardErr || !card) {
-      return { success: false, error: 'الكارت غير موجود في النظام' };
+      return { success: false, error: `الكارت غير موجود في النظام (${cardErr?.message || 'not found'})` };
     }
 
     if (card.status === 'active' && card.owner_id && card.owner_id !== user.id) {
@@ -72,8 +84,11 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
       .eq('id', card.id);
 
     if (updateErr) {
-      console.error('Card update error:', updateErr);
-      return { success: false, error: 'فشل تحديث بيانات الكارت' };
+      console.error('Card update error details:', updateErr);
+      return {
+        success: false,
+        error: `فشل تحديث بيانات الكارت: ${updateErr.message} (code: ${updateErr.code})`,
+      };
     }
 
     // 3. If business, create or update business_cards record
@@ -84,7 +99,6 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
         .replace(/\s+/g, '-')
         .replace(/[^\w\-]+/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-      // Check if business_card already exists for this card_id
       const { data: existingBc } = await supabaseAdmin
         .from('business_cards')
         .select('slug')
@@ -93,7 +107,7 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
 
       if (existingBc?.slug) {
         slug = existingBc.slug;
-        await supabaseAdmin
+        const { error: bcUpdateErr } = await supabaseAdmin
           .from('business_cards')
           .update({
             full_name: fullName,
@@ -105,6 +119,10 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
             is_active: true,
           })
           .eq('card_id', card.id);
+
+        if (bcUpdateErr) {
+          console.error('Business card update error:', bcUpdateErr);
+        }
       } else {
         const { error: bcErr } = await supabaseAdmin.from('business_cards').insert({
           card_id: card.id,
@@ -120,6 +138,10 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
 
         if (bcErr) {
           console.error('Business card insert error:', bcErr);
+          return {
+            success: false,
+            error: `فشل إنشاء تفاصيل كارت الأعمال: ${bcErr.message} (code: ${bcErr.code})`,
+          };
         }
       }
     }
