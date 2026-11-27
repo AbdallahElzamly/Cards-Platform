@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getKuwiOrderHref } from '@/lib/brand-config';
+import NfcTapGuide from '@/components/marketing/NfcTapGuide';
 import {
   ArrowUpLeftIcon,
   CheckIcon,
@@ -273,6 +274,8 @@ export default function GoogleReviewsLandingPage() {
             </div>
           </div>
         </section>
+
+        <NfcTapGuide heading="الزبون يقرّب الكارت فين بالظبط؟" />
 
         {/* Hormozi Pure Value Stacking (Zero Discounts, Zero Acrylic Stands) */}
         <section id="pricing" className="py-20 px-4 sm:px-6 border-t border-white/10 bg-[#12121A]">
