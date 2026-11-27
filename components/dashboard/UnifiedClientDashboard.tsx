@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Card, BusinessCard } from '@/types/smart-cards';
-import { updateBusinessCardAction, updateReviewCardTargetUrlAction } from '@/app/actions/dashboard';
+import { Card, BusinessCard, CardStatus } from '@/types/smart-cards';
+import {
+  updateBusinessCardAction,
+  updateReviewCardTargetUrlAction,
+  updateCardStatusModeAction,
+  reassignCardCustodyAction,
+} from '@/app/actions/dashboard';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 
@@ -39,14 +44,42 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
   );
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) || cards[0];
-  const initialVisibleFields = (selectedCard?.business_card?.social_links as any)?.visible_fields || {};
+  const initialVisibleFields = (selectedCard?.business_card?.social_links as any)?.visible_fields || {
+    phone: true,
+    whatsapp: true,
+    email: true,
+    website: true,
+    vodafone_cash: true,
+    instapay: true,
+    bio: true,
+  };
   const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>(initialVisibleFields);
 
   const handleCardSelect = (id: string) => {
     setSelectedCardId(id);
     const found = cards.find((c) => c.id === id);
     setAvatarUrl(found?.business_card?.avatar_url || '');
-    setVisibleFields((found?.business_card?.social_links as any)?.visible_fields || {});
+    setVisibleFields((found?.business_card?.social_links as any)?.visible_fields || {
+      phone: true,
+      whatsapp: true,
+      email: true,
+      website: true,
+      vodafone_cash: true,
+      instapay: true,
+      bio: true,
+    });
+  };
+
+  const handleApplyPreset = (preset: 'all' | 'work' | 'social_pay') => {
+    let updated: Record<string, boolean> = {};
+    if (preset === 'all') {
+      updated = { phone: true, whatsapp: true, email: true, website: true, vodafone_cash: true, instapay: true, bio: true };
+    } else if (preset === 'work') {
+      updated = { phone: true, whatsapp: true, email: true, website: true, vodafone_cash: false, instapay: false, bio: true };
+    } else if (preset === 'social_pay') {
+      updated = { phone: false, whatsapp: false, email: false, website: false, vodafone_cash: true, instapay: true, bio: false };
+    }
+    setVisibleFields(updated);
   };
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +115,6 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
       console.warn('Supabase storage upload fallback to base64:', err);
     }
 
-    // Fallback to Data URL / Base64 if storage bucket not configured
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const result = uploadEvent.target?.result as string;
@@ -116,7 +148,6 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
       formData.set('avatar_url', avatarUrl);
     }
 
-    // Attach visible fields inside social_links jsonb string or form field
     const existingSocials = selectedCard.business_card?.social_links || {};
     const updatedSocials = {
       ...(typeof existingSocials === 'object' ? existingSocials : {}),
@@ -130,6 +161,39 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
         setErrorMsg(res.error || 'فشل التحديث');
       } else {
         setSuccessMsg('تم حفظ وتحديث الكارت وإعدادات الخصوصية بنجاح! ✅');
+      }
+    });
+  };
+
+  const handleStatusChange = (status: CardStatus) => {
+    if (!selectedCard) return;
+    startTransition(async () => {
+      const res = await updateCardStatusModeAction(selectedCard.id, status);
+      if (!res.success) {
+        setErrorMsg(res.error || 'فشل تغيير حالة الكارت');
+      } else {
+        setSuccessMsg(`تم تحديث حالة الكارت إلى (${status}) بنجاح!`);
+      }
+    });
+  };
+
+  const handleCustodyReassign = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedCard) return;
+    if (!window.confirm('هل أنت متأكد من إعادة تعيين الكارت للموظف الجديد؟ سيتم تطبيق البيانات وتحديث السجل.')) {
+      return;
+    }
+
+    const formData = new FormData(e.currentTarget);
+    const clearLeads = (formData.get('clear_leads') === 'on');
+    if (avatarUrl) formData.set('avatar_url', avatarUrl);
+
+    startTransition(async () => {
+      const res = await reassignCardCustodyAction(selectedCard.id, formData, clearLeads);
+      if (!res.success) {
+        setErrorMsg(res.error || 'فشل نقل عهدة الكارت');
+      } else {
+        setSuccessMsg('تم نقل عهدة الكارت وتحديث بيانات الموظف بنجاح! 🔄');
       }
     });
   };
@@ -177,7 +241,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 mb-1">لوحة التحكم الموحدة</h1>
+            <h1 className="text-2xl font-black text-slate-900 mb-1">لوحة التحكم الموحدة (إدارة الأسطول)</h1>
             <p className="text-xs text-slate-500">مرحباً بك، {userEmail}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -258,11 +322,11 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
             {activeTab === 'cards' && cards.length > 0 && (
               <div className="flex flex-col gap-6">
                 
-                {/* Card Selector & Stats */}
+                {/* Card Selector & Stats / Fleet Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
                     <div>
-                      <span className="text-xs text-slate-400 font-medium">اختر الكارت للإدارة</span>
+                      <span className="text-xs text-slate-400 font-medium">اختر الكارت للإدارة والتعقب</span>
                       <select
                         value={selectedCardId}
                         onChange={(e) => handleCardSelect(e.target.value)}
@@ -270,15 +334,30 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                       >
                         {cards.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.code} ({c.product})
+                            [{c.status.toUpperCase()}] {c.code} ({c.product}) {c.business_card?.full_name ? `- ${c.business_card.full_name}` : ''}
                           </option>
                         ))}
                       </select>
                     </div>
+
                     {selectedCard && (
                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <span className="text-slate-500">إجمالي النقرات / المسحات</span>
-                        <span className="font-black text-blue-600 text-base">{selectedCard.scan_count || 0}</span>
+                        <div>
+                          <span className="text-slate-500 block">إجمالي المسحات: <strong className="text-blue-600">{selectedCard.scan_count || 0}</strong></span>
+                          <span className="text-slate-500 block mt-0.5">العملاء (Leads): <strong className="text-emerald-600">{selectedCard.leads?.length || 0}</strong></span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] text-slate-400">حالة الكارت:</span>
+                          <select
+                            value={selectedCard.status}
+                            onChange={(e) => handleStatusChange(e.target.value as CardStatus)}
+                            className="px-2 py-1 bg-slate-100 rounded-lg text-xs font-bold"
+                          >
+                            <option value="active">نشط (Active)</option>
+                            <option value="lost">مفقود (Lost Mode)</option>
+                            <option value="suspended">موقوف (Suspended)</option>
+                          </select>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -318,11 +397,40 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                   )}
                 </div>
 
-                {/* Editor Forms */}
+                {/* Editor Forms & Share Presets */}
                 {selectedCard && selectedCard.product === 'business' && selectedCard.business_card && (
-                  <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 className="text-base font-bold text-slate-900 mb-4">تعديل محتوى كارت الأعمال الذكي والخصوصية</h3>
+                  <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-6">
                     
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                      <h3 className="text-base font-bold text-slate-900">تعديل محتوى كارت الأعمال الذكي والخصوصية</h3>
+                      
+                      {/* Share Presets */}
+                      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs">
+                        <span className="px-2 text-slate-500 font-medium">قوالب العرض:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('all')}
+                          className="px-3 py-1.5 bg-white text-slate-800 font-bold rounded-lg shadow-xs hover:bg-slate-50 transition"
+                        >
+                          الكل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('work')}
+                          className="px-3 py-1.5 bg-white text-slate-800 font-bold rounded-lg shadow-xs hover:bg-slate-50 transition"
+                        >
+                          بيانات العمل فقط
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('social_pay')}
+                          className="px-3 py-1.5 bg-white text-slate-800 font-bold rounded-lg shadow-xs hover:bg-slate-50 transition"
+                        >
+                          التواصل والمدفوعات
+                        </button>
+                      </div>
+                    </div>
+
                     <form onSubmit={handleBusinessSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">الاسم الكامل</label>
@@ -491,7 +599,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                         />
                       </div>
 
-                      <div className="sm:col-span-2 pt-2">
+                      <div className="sm:col-span-2 pt-2 flex items-center justify-between">
                         <button
                           type="submit"
                           disabled={isPending}
@@ -501,6 +609,57 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                         </button>
                       </div>
                     </form>
+
+                    {/* Custody Reassignment & Employee Transfer Section */}
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                      <h4 className="text-sm font-bold text-slate-900 mb-2">إعادة تعيين الكارت لموظف جديد (Custody Transfer)</h4>
+                      <p className="text-xs text-slate-500 mb-4">
+                        نقل عهدة هذا الكارت لموظف جديد في الشركة مع تحديث بياناته وأرشفة السجل القديم.
+                      </p>
+
+                      <form onSubmit={handleCustodyReassign} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            name="full_name"
+                            required
+                            placeholder="اسم الموظف الجديد"
+                            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs"
+                          />
+                          <input
+                            type="text"
+                            name="job_title"
+                            placeholder="المسمى الوظيفي الجديد"
+                            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs"
+                          />
+                          <input
+                            type="tel"
+                            name="phone"
+                            dir="ltr"
+                            placeholder="رقم الموبايل الجديد"
+                            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-right font-mono"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer pt-1">
+                          <input
+                            type="checkbox"
+                            name="clear_leads"
+                            className="rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                          />
+                          <span className="text-[11px] font-bold text-rose-700">تفريغ / مسح سجل العملاء (Leads) السابق الخاص بالموظف المغادر</span>
+                        </label>
+                        <div>
+                          <button
+                            type="submit"
+                            disabled={isPending}
+                            className="py-2.5 px-5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                          >
+                            إتمام نقل العهدة وتحديث الموظف 🔄
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
                   </div>
                 )}
 

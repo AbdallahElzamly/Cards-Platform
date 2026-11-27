@@ -39,6 +39,16 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
     );
   }
 
+  // Record scan (best effort, non-blocking)
+  try {
+    await supabaseAdmin.from('scans').insert({
+      card_id: card.id,
+      device_type: 'mobile',
+    });
+  } catch (scanErr) {
+    console.error('Failed to record scan:', scanErr);
+  }
+
   // 2. If suspended
   if (card.status === 'suspended') {
     return (
@@ -56,22 +66,41 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
     );
   }
 
-  // Record scan (best effort, non-blocking)
-  try {
-    await supabaseAdmin.from('scans').insert({
-      card_id: card.id,
-      device_type: 'mobile',
-    });
-  } catch (scanErr) {
-    console.error('Failed to record scan:', scanErr);
+  // 3. If lost / recovery mode
+  if (card.status === 'lost') {
+    if (card.product === 'business') {
+      const { data: businessCard } = await supabaseAdmin
+        .from('business_cards')
+        .select('slug')
+        .eq('card_id', card.id)
+        .single();
+
+      if (businessCard?.slug) {
+        redirect(`/c/${businessCard.slug}?lost=true`);
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="max-w-md w-full bg-slate-800 rounded-3xl shadow-2xl p-8 text-center border border-amber-500/30">
+          <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+            ⚠️
+          </div>
+          <h1 className="text-xl font-bold mb-2">تنبيه: هذا الكارت مفقود / مبلغ عن فقدانه</h1>
+          <p className="text-sm text-slate-300 mb-6">
+            إذا عثرت على هذه البطاقة، يرجى التواصل مع مالكها أو تسليمها للإدارة المختصة.
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  // 3. If unclaimed -> redirect to activation
+  // 4. If unclaimed -> redirect to activation
   if (card.status === 'unclaimed') {
     redirect(`/activate/${encodeURIComponent(card.code)}`);
   }
 
-  // 4. If active -> route based on product type
+  // 5. If active -> route based on product type
   if (card.product === 'review') {
     const targetUrl = card.target_url && /^https?:\/\//i.test(card.target_url) ? card.target_url : '/';
     redirect(targetUrl);

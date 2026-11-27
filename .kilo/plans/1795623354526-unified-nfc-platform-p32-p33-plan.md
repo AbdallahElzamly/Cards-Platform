@@ -1,22 +1,19 @@
-# Plan: UI/UX Redesign & Upgrade for Smart Business Card (`SmartBusinessCardClient.tsx`)
+# Plan: Custody Reassignment, Fleet Tracking, Share Presets, and Lost Card Mode
 
 ## Overview
-Apply principles from `figma-designer` and `landing-page-design` skills to upgrade `SmartBusinessCardClient.tsx` (`/c/[slug]`) while keeping 100% of existing functionality intact.
+Implement Batch 2 (Custody Reassignment & Fleet Tracking) and Batch 3 (Share Presets & Lost Card Mode) on branch `main` while keeping `/dashboard/loyalty`, `/l/[slug]`, and `loyalty_*` tables 100% untouched.
 
-## Design Improvements
-1. **Visual Hierarchy & Typography:**
-   - Use strict Tailwind scale (`text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`), precise spacing tokens (`p-6`, `gap-4`), and balanced weights.
-   - Elegant shadow styling (`shadow-xl shadow-black/10`), rounded corners (`rounded-3xl`), and frosted glass card surfaces.
-2. **Profile Header & CTAs:**
-   - Crisp avatar frame with subtle ring, clear typography for name, job title, company, and bio.
-   - Polished primary action buttons (Call, WhatsApp, Save Contact) with active scale micro-interactions (`active:scale-[0.98]`, smooth `transition-all`).
-3. **Secondary Actions & Payment Links:**
-   - Clean badges/cards for email, website, Vodafone Cash (with copy feedback), and InstaPay.
-4. **Lead Capture Section ("شارك بياناتك معي"):**
-   - High-contrast, uncluttered form card with clear input fields, active focus rings, and success/error feedback states.
-5. **Preserved Functionality:**
-   - 100% backward compatibility with `avatar_url` (initials fallback), visible field privacy toggles (`visible_fields`), `.vcf` download API, WhatsApp/phone/payment actions, and `card_leads` server action submission.
-
-## Validation Plan
-1. Run `npx tsc --noEmit` and `npx next build`.
-2. Commit and push to `main`.
+## Detailed Steps & File Plan
+1. **Database Migration (`supabase/migrations/20261127_smart_cards_platform.sql` or new `20261127_cards_status_lost.sql`):**
+   - Add `'lost'` to `cards.status` check constraint.
+   - Add coarse geolocation columns to `scans` (`city`, `country`) if desired, or read headers.
+2. **Custody Reassignment & Fleet Tracking (Batch 2):**
+   - In `app/actions/dashboard.ts`, add `reassignCardCustodyAction` (reset/update employee profile details and optionally clear/archive `card_leads` for that card).
+   - In `UnifiedClientDashboard.tsx`, add fleet overview with per-card scan counts, lead counts, lead filtering, export per card, and custody transfer/reset modal or form.
+3. **Share Presets & Lost Card Mode (Batch 3):**
+   - In `UnifiedClientDashboard.tsx`, add quick share preset buttons (`الكل`, `بيانات العمل فقط`, `التواصل الاجتماعي والمدفوعات`) to toggle `visible_fields` in bulk.
+   - In `SmartBusinessCardClient.tsx`, handle Lost Card Mode (`status === 'lost'`) displaying a recovery notice and contact option while logging scan events with coarse geo headers.
+   - In `/api/vcard/[slug]/route.ts`, respect visibility presets.
+4. **Verification & Push:**
+   - Run `npx tsc --noEmit` and `npx next build`.
+   - Commit and push to `main`.

@@ -3,12 +3,16 @@
 import React, { useState, useTransition } from 'react';
 import { BusinessCard } from '@/types/smart-cards';
 import { submitCardLeadAction } from '@/app/actions/leads';
+import { useSearchParams } from 'next/navigation';
 
 interface SmartBusinessCardClientProps {
   card: BusinessCard;
 }
 
 export default function SmartBusinessCardClient({ card }: SmartBusinessCardClientProps) {
+  const searchParams = useSearchParams();
+  const isLost = searchParams.get('lost') === 'true';
+
   const [visitorName, setVisitorName] = useState('');
   const [visitorPhone, setVisitorPhone] = useState('');
   const [visitorNote, setVisitorNote] = useState('');
@@ -59,6 +63,12 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
     >
       <div className="w-full max-w-[430px] bg-white/95 backdrop-blur-xl rounded-[32px] shadow-2xl shadow-black/20 overflow-hidden border border-white/40 p-6 sm:p-8 flex flex-col gap-6 transition-all">
         
+        {isLost && (
+          <div className="p-4 bg-amber-500 text-slate-950 font-bold rounded-2xl text-xs text-center shadow-md animate-pulse">
+            ⚠️ تنبيه: هذا الكارت مبلغ عن فقدانه. إذا عثرت عليه يرجى الاتصال بصاحبه أدناه.
+          </div>
+        )}
+
         {/* Profile Header */}
         <div className="text-center relative flex flex-col items-center">
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center text-3xl font-black text-slate-800 mb-4 ring-2 ring-slate-900/5">

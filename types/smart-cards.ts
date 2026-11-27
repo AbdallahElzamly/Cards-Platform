@@ -1,6 +1,6 @@
 export type CardProduct = 'business' | 'review' | 'loyalty';
 
-export type CardStatus = 'unclaimed' | 'active' | 'suspended';
+export type CardStatus = 'unclaimed' | 'active' | 'suspended' | 'lost';
 
 export interface Card {
   id: string;
@@ -29,7 +29,7 @@ export interface BusinessCard {
   website: string | null;
   instapay_url: string | null;
   vodafone_cash: string | null;
-  social_links: Record<string, string>;
+  social_links: Record<string, any>;
   is_active: boolean;
   created_at: string;
 }
@@ -48,4 +48,6 @@ export interface Scan {
   card_id: string;
   scanned_at: string;
   device_type: string | null;
+  city: string | null;
+  country: string | null;
 }
