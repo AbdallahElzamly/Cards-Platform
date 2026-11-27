@@ -1,13 +1,23 @@
-# Refined Plan: Tasks P32 & P33 — Dynamic Gateway, Activation, Smart Business Card & vCard Export
+# Plan: Tasks P34, P35 & P36 — Admin Batch Generator, Smart Unified Dashboard, and Platform Landing Page
 
 ## Overview
-Implement Tasks P32 and P33 on branch `feat/unified-nfc-platform`:
-1. **Dynamic Gateway `/q/[code]` & Activation `/activate/[code]` (P32):**
-   - `app/q/[code]/page.tsx`: Server-rendered dynamic route with `force-dynamic` and `Cache-Control: no-store`. Handles `unclaimed` (redirects to `/activate/[code]`), `review` (redirects to `target_url`), `business` (redirects to `/c/[slug]`), and `loyalty` (redirects to `/l/[slug]`), recording scans in `scans` (best-effort, non-blocking).
-   - `app/activate/[code]/page.tsx`: Self-service card claiming & setup flow requiring Supabase authentication (auto-linking card to `auth.uid()`). Allows setting product type (`business` or `review`) and creating initial business card details or review URL.
-2. **Smart Business Card `/c/[slug]`, vCard API, & Lead Capture (P33):**
-   - `app/c/[slug]/page.tsx`: Arabic RTL Smart Business Card page with customizable theme color, avatar/logo, bio, direct call, WhatsApp, InstaPay, Vodafone Cash, social links, vCard download button, and lead capture form inserting into `card_leads`.
-   - `app/api/vcard/[slug]/route.ts`: API route returning `.vcf` v3.0 file download (`Content-Type: text/vcard`).
-3. **Verification:**
+Implement Tasks P34, P35, and P36 on branch `feat/unified-nfc-platform` while keeping `/dashboard/loyalty` and `/l/[slug]` 100% untouched and operational:
+1. **Admin Bulk Batch Generator & Card Manager (`/admin` - P34):**
+   - Protected route `app/admin/page.tsx` checking user email against `process.env.ADMIN_EMAILS` (comma-separated list, showing Arabic RTL "غير مصرح بالدخول" if unauthorized).
+   - Bulk code generator: creates 1 to 500 unambiguous uppercase alphanumeric 6-character codes (`status = 'unclaimed'`) into `cards`.
+   - Print-ready CSV export (UTF-8 with BOM) containing `code,product,batch_name,status,qr_url`.
+   - Cards management table with filters (`batch_name`, `status`), search (`code`), and inline status/target_url updates.
+2. **Smart Unified Customer Dashboard (`/dashboard` - P35):**
+   - `app/dashboard/page.tsx`: Redirects unauthenticated users to `/auth/login?redirect=/dashboard`.
+   - Queries `cards` (with joined `business_cards` and `scans` count) and `loyalty_programs` owned by `auth.uid()`.
+   - Renders `components/dashboard/UnifiedClientDashboard.tsx` in Arabic RTL adapting dynamically:
+     - Smart Cards tab (`business` / `review`): live scan counts, editor for `business_cards` or `target_url`, copyable `/q/[code]` and `/c/[slug]` links, and `card_leads` list with CSV export.
+     - Loyalty tab: prominent card linking directly to `/dashboard/loyalty`.
+     - Empty state: quick card activation input box redirecting to `/activate/<code>`.
+3. **Unified Platform Landing Page (`/` - P36):**
+   - Updated `app/page.tsx` presenting two distinct paths for **KUWI**:
+     - Smart Business Cards & Google Review Cards (NFC / QR).
+     - Restaurant & Cafe Loyalty System (6th meal free).
+4. **Verification & Commit:**
    - Run `npx tsc --noEmit` and `npm run build`.
-   - Commit changes to `feat/unified-nfc-platform` with message `feat(p32-p33): add /q/[code] gateway, /activate/[code], /c/[slug] business card, and vCard export`.
+   - Commit changes to `feat/unified-nfc-platform` with message `feat(p34-p36): add /admin batch generator, smart /dashboard, and unified landing page`.

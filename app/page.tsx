@@ -1,90 +1,83 @@
 import Link from 'next/link';
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between p-4 sm:p-8" dir="rtl">
-      <div className="max-w-4xl mx-auto w-full pt-6 sm:pt-12 pb-12">
-        {/* Top Brand Pill */}
-        <div className="flex items-center justify-between mb-10">
-          <div className="inline-flex items-center gap-2.5 bg-white/10 border border-white/15 px-4 py-2 rounded-full backdrop-blur-md">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold tracking-wide text-slate-100">
-              Cards Platform • نظام ولاء المطاعم الذكي
-            </span>
-          </div>
-
-          <Link
-            href="/auth/login"
-            className="text-xs sm:text-sm font-bold text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl transition"
-          >
-            دخول التجار ←
-          </Link>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans" dir="rtl">
+      <div className="max-w-4xl w-full flex flex-col gap-8 text-center my-12">
+        
+        {/* Brand Hero */}
+        <div>
+          <span className="bg-blue-100 text-blue-700 font-black text-xs px-3.5 py-1.5 rounded-full uppercase tracking-wider">
+            KUWI Platform • NFC & QR
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 mt-4 mb-3 tracking-tight">
+            منصة كوي الموحدة للبطاقات الذكية ونظام الولاء
+          </h1>
+          <p className="text-base text-slate-600 max-w-2xl mx-auto">
+            الحل الأمثل لمشاركة بيانات عملك، جمع تقييمات جوجل، وبناء ولاء عملائك بلمسة واحدة عبر تقنية NFC.
+          </p>
         </div>
 
-        {/* Hero Card */}
-        <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/60 border border-white/10 rounded-[2rem] p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
-          <div className="max-w-2xl">
-            <span className="inline-block text-xs font-extrabold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-3.5 py-1 rounded-full mb-4">
-              بدون تحميل تطبيقات • بدون رسائل OTP مدفوعة • في 4 ثوانٍ فقط
-            </span>
-            <h1 className="text-3xl sm:text-5xl font-black leading-tight tracking-tight mb-4">
-              حوّل كل طاولة في مطعمك إلى{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-l from-amber-300 to-yellow-500">
-                كارت ولاء ذكي
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
-              يلمس العميل كارت الـ NFC أو يمسح الـ QR من طاولته، يسجل زيارته بكود الكاشير اليومي المتغير، وفي الزيارة السادسة تظهر له قسيمة الهدية الذهبية الحية المضادة للـ Screenshot.
-            </p>
+        {/* Two Distinct Product Paths */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-right">
+          
+          {/* Path 1: Smart Cards & Reviews */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between transition hover:shadow-md">
+            <div>
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 text-xl font-bold">
+                📇
+              </div>
+              <h2 className="text-xl font-black text-slate-900 mb-2">كروت الأعمال الذكية وتقييمات جوجل</h2>
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                شارك بيانات اتصالك، مواقع التواصل، روابط انستاباي وفودافون كاش فوري (.vcf)، أو وجه عملائك مباشرة لتقييم 5 نجوم على خرائط جوجل.
+              </p>
+            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3.5">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link
+                href="/dashboard"
+                className="py-3 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center transition shadow-sm"
+              >
+                تسجيل الدخول للوحة التحكم 💼
+              </Link>
+            </div>
+          </div>
+
+          {/* Path 2: Restaurant Loyalty */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between transition hover:shadow-md">
+            <div>
+              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 text-xl font-bold">
+                🎁
+              </div>
+              <h2 className="text-xl font-black text-slate-900 mb-2">نظام ولاء المطاعم والكافيهات</h2>
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                برنامج ولاء رقمي بدون تطبيقات (اجمع زياراتك.. والسادسة مجاناً). حماية ثلاثية ضد الاحتيال، كود كاشير يومي، وقسائم حية ومباشرة.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/dashboard/loyalty"
-                className="py-4 px-7 bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-600/25 transition text-sm sm:text-base text-center"
+                className="py-3 px-5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs text-center transition shadow-sm"
               >
-                فتح لوحة تحكم التاجر والكاشير 💼
+                إدارة برنامج الولاء 🎁
               </Link>
               <Link
-                href="/l/test-cafe?t=3"
-                className="py-4 px-7 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold rounded-2xl transition text-sm sm:text-base text-center"
+                href="/l/test-cafe"
+                className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs text-center transition"
               >
-                معاينة كارت العميل التجريبي 🏷️
+                تجربة كارت العميل 🏷️
               </Link>
             </div>
           </div>
 
-          {/* 3 Feature Pillars */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10 pt-8 border-t border-white/10">
-            <div className="bg-black/25 border border-white/5 rounded-2xl p-4">
-              <div className="text-xl mb-2">⚡</div>
-              <h2 className="font-extrabold text-sm text-white mb-1">سرعة فائقة بلا تعقيد</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                أول زيارة في أقل من 12 ثانية، والزيارات التالية تُختم تلقائياً في أقل من 4 ثوانٍ عبر كوكي مشفرة لمدة عام.
-              </p>
-            </div>
-
-            <div className="bg-black/25 border border-white/5 rounded-2xl p-4">
-              <div className="text-xl mb-2">🛡️</div>
-              <h2 className="font-extrabold text-sm text-white mb-1">درع ثلاثي ضد التلاعب</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                كود كاشير يومي متغير، فترة تهدئة زمنية من السيرفر، وقسيمة وجبة مجانية بساعة ثوانٍ حية وصرف ذري لمرة واحدة.
-              </p>
-            </div>
-
-            <div className="bg-black/25 border border-white/5 rounded-2xl p-4">
-              <div className="text-xl mb-2">🔒</div>
-              <h2 className="font-extrabold text-sm text-white mb-1">خصوصية مشفرة 100%</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                تشفير أرقام الموبايل المصري عبر HMAC-SHA256 بما يتوافق مع قانون حماية البيانات رقم 151 لسنة 2020.
-              </p>
-            </div>
-          </div>
         </div>
-      </div>
 
-      <footer className="text-center text-xs text-slate-500 pb-4">
-        منصة كروت الولاء الذكية (NFC / Dynamic QR) • مصممة للعمل بأعلى سرعة على شبكات الموبايل
-      </footer>
-    </main>
+        <div className="text-xs text-slate-400 pt-4">
+          KUWI NFC Platform • جميع الحقوق محفوظة © 2026
+        </div>
+
+      </div>
+    </div>
   );
 }
