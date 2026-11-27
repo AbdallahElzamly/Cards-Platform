@@ -1,11 +1,12 @@
 // Centralized KUWI Sales & Support contact config.
-// Set NEXT_PUBLIC_KUWI_WHATSAPP in .env.local / Vercel (digits only with country code, e.g. 201XXXXXXXXX).
-// Never hardcode an unverified phone number!
+// Override anytime via NEXT_PUBLIC_KUWI_WHATSAPP in Vercel Environment Variables (e.g. 201XXXXXXXXX)
+// with zero code changes when switching to a dedicated KUWI Business WhatsApp line.
 
 export const KUWI_FOUNDER_EMAIL = 'abdallahelzamly200393@gmail.com';
+const DEFAULT_KUWI_WHATSAPP = '201030174729';
 
 export function getKuwiWhatsAppDigits(): string {
-  const raw = process.env.NEXT_PUBLIC_KUWI_WHATSAPP || '';
+  const raw = process.env.NEXT_PUBLIC_KUWI_WHATSAPP || DEFAULT_KUWI_WHATSAPP;
   return raw.replace(/\D/g, '');
 }
 
