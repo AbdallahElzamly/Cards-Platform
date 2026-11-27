@@ -18,7 +18,7 @@ import {
   updateReviewCardTargetUrlAction,
 } from '@/app/actions/dashboard';
 import { merchantSignOutAction } from '@/app/actions/auth';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { compressAvatarImage } from '@/lib/image-compress';
 import IndividualOnboardingWizard from './IndividualOnboardingWizard';
 import {
   ArrowUpLeftIcon,
@@ -164,52 +164,61 @@ export default function UnifiedClientDashboard({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2.5 * 1024 * 1024) {
-      setErrorMsg('حجم الصورة كبير، الحد الأقصى 2.5 ميجابايت.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('حجم الصورة كبير جداً، الحد الأقصى 10 ميجابايت.');
       return;
     }
 
     setUploadingAvatar(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      if (supabase) {
-        const fileExt = file.name.split('.').pop() || 'jpg';
-        const filePath = `public/avatar-${selectedCard?.id || 'card'}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, { upsert: true });
+      // Layer 1: Compress image in browser to crisp 512x512 JPEG (~40-80 KB)
+      const compressed = await compressAvatarImage(file, 512, 0.82);
 
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          if (publicUrlData?.publicUrl) {
-            setAvatarUrl(publicUrlData.publicUrl);
-            setUploadingAvatar(false);
-            return;
-          }
+      // Layer 2: Upload via authenticated server Route Handler to Supabase Storage (avatars bucket)
+      const uploadForm = new FormData();
+      uploadForm.append(
+        'file',
+        new File([compressed.blob], `avatar-${selectedCard?.id || 'profile'}.jpg`, {
+          type: compressed.contentType,
+        })
+      );
+      if (selectedCard?.id) {
+        uploadForm.append('cardId', selectedCard.id);
+      }
+
+      const resp = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        body: uploadForm,
+      });
+
+      if (resp.ok) {
+        const json = (await resp.json()) as { success?: boolean; url?: string };
+        if (json.url) {
+          setAvatarUrl(json.url);
+          return;
         }
       }
-    } catch {
-      // fallback to DataURL
-    }
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      if (result) setAvatarUrl(result);
+      // Layer 3: Safe fallback to tiny compressed DataURL (~50 KB, never > 350 KB)
+      if (compressed.dataUrl.length <= 350_000) {
+        setAvatarUrl(compressed.dataUrl);
+      } else {
+        setErrorMsg('تعذر رفع الصورة للخادم، يرجى اختيار صورة أصغر والمحاولة مجدداً.');
+      }
+    } catch (err) {
+      console.error('handleImageFileChange error:', err);
+      setErrorMsg('تعذر معالجة الصورة المختارة، يرجى تجربة صورة أخرى (JPG أو PNG).');
+    } finally {
       setUploadingAvatar(false);
-    };
-    reader.onerror = () => {
-      setUploadingAvatar(false);
-      setErrorMsg('تعذر قراءة ملف الصورة.');
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleBusinessSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedCard) return;
+    if (!selectedCard || uploadingAvatar) return;
     setErrorMsg(null);
     setSuccessMsg(null);
 
@@ -224,12 +233,17 @@ export default function UnifiedClientDashboard({
     formData.set('social_links_json', JSON.stringify(updatedSocials));
 
     startTransition(async () => {
-      const res = await updateBusinessCardAction(selectedCard.id, formData);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر حفظ التعديلات.');
-      } else {
-        setSuccessMsg('تم حفظ وتحديث بيانات بطاقتك بنجاح.');
-        router.refresh();
+      try {
+        const res = await updateBusinessCardAction(selectedCard.id, formData);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر حفظ التعديلات.');
+        } else {
+          setSuccessMsg('تم حفظ وتحديث بيانات بطاقتك بنجاح.');
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleBusinessSubmit network/server error:', err);
+        setErrorMsg('حدث خطأ مؤقت في الاتصال أثناء الحفظ. تأكد من الإنترنت واضغط حفظ مرة أخرى.');
       }
     });
   };
@@ -241,13 +255,18 @@ export default function UnifiedClientDashboard({
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await claimCardByCodeInDashboardAction(claimCodeInput);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر تفعيل الكارت.');
-      } else {
-        setSuccessMsg(`تم ربط الكارت (${claimCodeInput.toUpperCase()}) بحسابك بنجاح.`);
-        setClaimCodeInput('');
-        router.refresh();
+      try {
+        const res = await claimCardByCodeInDashboardAction(claimCodeInput);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر تفعيل الكارت.');
+        } else {
+          setSuccessMsg(`تم ربط الكارت (${claimCodeInput.toUpperCase()}) بحسابك بنجاح.`);
+          setClaimCodeInput('');
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleClaimCard error:', err);
+        setErrorMsg('حدث خطأ أثناء تفعيل الكارت، يرجى المحاولة مرة أخرى.');
       }
     });
   };
@@ -257,16 +276,21 @@ export default function UnifiedClientDashboard({
     setErrorMsg(null);
     setSuccessMsg(null);
     startTransition(async () => {
-      const res = await updateCardStatusModeAction(selectedCard.id, status);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر تحديث الحالة.');
-      } else {
-        setSuccessMsg(
-          status === 'lost'
-            ? 'تم تفعيل وضع المفقود — سيظهر تنبيه استرداد لأي شخص يمسح البطاقة.'
-            : 'تم إعادة البطاقة إلى الوضع النشط.'
-        );
-        router.refresh();
+      try {
+        const res = await updateCardStatusModeAction(selectedCard.id, status);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر تحديث الحالة.');
+        } else {
+          setSuccessMsg(
+            status === 'lost'
+              ? 'تم تفعيل وضع المفقود — سيظهر تنبيه استرداد لأي شخص يمسح البطاقة.'
+              : 'تم إعادة البطاقة إلى الوضع النشط.'
+          );
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleStatusChange error:', err);
+        setErrorMsg('حدث خطأ أثناء تحديث حالة البطاقة.');
       }
     });
   };
@@ -278,12 +302,17 @@ export default function UnifiedClientDashboard({
     const clearLeads = formData.get('clear_leads') === 'on';
 
     startTransition(async () => {
-      const res = await reassignCardCustodyAction(selectedCard.id, formData, clearLeads);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر تحديث عهدة الموظف.');
-      } else {
-        setSuccessMsg('تم تحديث بيانات الموظف وعهدة الكارت بنجاح.');
-        router.refresh();
+      try {
+        const res = await reassignCardCustodyAction(selectedCard.id, formData, clearLeads);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر تحديث عهدة الموظف.');
+        } else {
+          setSuccessMsg('تم تحديث بيانات الموظف وعهدة الكارت بنجاح.');
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleCustodyReassign error:', err);
+        setErrorMsg('حدث خطأ أثناء تحديث العهدة.');
       }
     });
   };
@@ -295,12 +324,17 @@ export default function UnifiedClientDashboard({
     const targetUrl = formData.get('target_url')?.toString() || '';
 
     startTransition(async () => {
-      const res = await updateReviewCardTargetUrlAction(selectedCard.id, targetUrl);
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر حفظ الرابط.');
-      } else {
-        setSuccessMsg('تم حفظ رابط التقييم بنجاح.');
-        router.refresh();
+      try {
+        const res = await updateReviewCardTargetUrlAction(selectedCard.id, targetUrl);
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر حفظ الرابط.');
+        } else {
+          setSuccessMsg('تم حفظ رابط التقييم بنجاح.');
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleReviewUrlSubmit error:', err);
+        setErrorMsg('حدث خطأ أثناء حفظ رابط التقييم.');
       }
     });
   };
@@ -892,20 +926,33 @@ export default function UnifiedClientDashboard({
                             onChange={handleImageFileChange}
                             className="w-full text-xs text-neutral-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-neutral-100 file:text-neutral-900 hover:file:bg-neutral-200"
                           />
+                          {avatarUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setAvatarUrl('')}
+                              className="self-start text-[11px] font-semibold text-red-700 hover:text-red-800 cursor-pointer"
+                            >
+                              حذف الصورة الحالية
+                            </button>
+                          )}
                         </div>
                       </div>
                       {uploadingAvatar && (
-                        <p className="text-xs text-neutral-500 mt-1">جاري رفع الصورة...</p>
+                        <p className="text-xs text-neutral-500 mt-1">جاري ضغط ورفع الصورة...</p>
                       )}
                     </div>
 
                     <div>
                       <button
                         type="submit"
-                        disabled={isPending}
-                        className="min-h-[48px] py-3 px-8 bg-[#181818] hover:bg-neutral-800 active:scale-[0.98] text-white font-semibold rounded-xl text-sm transition cursor-pointer"
+                        disabled={isPending || uploadingAvatar}
+                        className="min-h-[48px] py-3 px-8 bg-[#181818] hover:bg-neutral-800 disabled:opacity-60 active:scale-[0.98] text-white font-semibold rounded-xl text-sm transition cursor-pointer"
                       >
-                        {isPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                        {uploadingAvatar
+                          ? 'جاري رفع الصورة...'
+                          : isPending
+                          ? 'جاري الحفظ...'
+                          : 'حفظ التعديلات'}
                       </button>
                     </div>
                   </form>

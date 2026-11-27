@@ -117,17 +117,22 @@ export default function IndividualOnboardingWizard({
     setErrorMsg(null);
 
     startTransition(async () => {
-      const res = await claimCardByCodeInDashboardAction(physicalCode, {
-        fullName,
-        jobTitle,
-        company,
-        phone,
-        whatsapp,
-      });
-      if (!res.success) {
-        setErrorMsg(res.error || 'تعذر ربط الكود، تأكد من صحته.');
-      } else {
-        router.refresh();
+      try {
+        const res = await claimCardByCodeInDashboardAction(physicalCode, {
+          fullName,
+          jobTitle,
+          company,
+          phone,
+          whatsapp,
+        });
+        if (!res.success) {
+          setErrorMsg(res.error || 'تعذر ربط الكود، تأكد من صحته.');
+        } else {
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleClaimPhysicalCode error:', err);
+        setErrorMsg('حدث خطأ في الاتصال أثناء ربط الكود، يرجى المحاولة مجدداً.');
       }
     });
   };
@@ -157,11 +162,16 @@ export default function IndividualOnboardingWizard({
     formData.set('surface_theme', surfaceTheme);
 
     startTransition(async () => {
-      const res = await createPersonalStarterCardAction(formData);
-      if (!res.success) {
-        setErrorMsg(res.error || 'حدث خطأ أثناء إنشاء بطاقتك.');
-      } else {
-        router.refresh();
+      try {
+        const res = await createPersonalStarterCardAction(formData);
+        if (!res.success) {
+          setErrorMsg(res.error || 'حدث خطأ أثناء إنشاء بطاقتك.');
+        } else {
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('handleFinishWizard error:', err);
+        setErrorMsg('حدث خطأ مؤقت أثناء إنشاء بطاقتك، يرجى المحاولة مرة أخرى.');
       }
     });
   };
