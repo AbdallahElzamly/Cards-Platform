@@ -53,25 +53,25 @@ export default function Home() {
           className="max-w-4xl mx-auto bg-[#181818]/85 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-2.5 flex items-center justify-between"
         >
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-white text-neutral-950 font-semibold text-sm flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-[#C8FF2E] text-[#0B0B0F] font-bold text-sm flex items-center justify-center">
               K
             </span>
             <span className="text-sm font-semibold tracking-tight text-white">KUWI</span>
           </Link>
 
-          <div className="hidden sm:flex items-center gap-6 text-xs font-medium text-neutral-300">
-            <a href="#solutions" className="hover:text-white transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              الحلول للأفراد والشركات
-            </a>
-            <a href="#how-it-works" className="hover:text-white transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              طريقة العمل
-            </a>
-            <a href="#pricing" className="hover:text-white transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              الأسعار والضمان
-            </a>
-            <a href="#faq" className="hover:text-white transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              الأسئلة الشائعة
-            </a>
+          <div className="hidden md:flex items-center gap-5 text-xs font-medium text-neutral-300">
+            <Link href="/google-reviews" className="hover:text-[#C8FF2E] transition duration-300">
+              تقييمات جوجل
+            </Link>
+            <Link href="/individuals" className="hover:text-[#C8FF2E] transition duration-300">
+              الأفراد
+            </Link>
+            <Link href="/business" className="hover:text-[#C8FF2E] transition duration-300">
+              الشركات
+            </Link>
+            <Link href="/restaurants" className="hover:text-[#C8FF2E] transition duration-300">
+              ولاء المطاعم
+            </Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -83,9 +83,9 @@ export default function Home() {
             </Link>
             <Link
               href="/auth/login?mode=signup"
-              className="py-2 px-3.5 bg-white hover:bg-neutral-200 active:scale-[0.98] text-neutral-950 text-xs font-semibold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="py-2 px-3.5 bg-[#C8FF2E] hover:brightness-95 active:scale-[0.98] text-[#0B0B0F] text-xs font-bold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
-              ابدأ حسابك مجاناً
+              ابدأ بطاقتك مجاناً
             </Link>
           </div>
         </nav>
@@ -112,15 +112,42 @@ export default function Home() {
               منصة كوي الموحدة لكروت الأعمال الذكية للأفراد، وبوابات إدارة فرق المبيعات للشركات، ونظام ولاء المطاعم عبر شرائح NFC ورموز QR الديناميكية بدون تطبيقات.
             </p>
 
-            {/* Single Primary CTA Above the Fold */}
+            {/* Single Primary CTA + 4 Dedicated Ad Landing Page Pills */}
             <div className="flex flex-col items-center gap-4 mb-16">
               <Link
                 href="/dashboard"
-                className="min-h-[48px] py-3 px-6 bg-white hover:bg-neutral-200 active:scale-[0.98] text-neutral-950 text-base font-semibold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] inline-flex items-center gap-2"
+                className="min-h-[48px] py-3 px-6 bg-[#C8FF2E] hover:brightness-95 active:scale-[0.98] text-[#0B0B0F] text-base font-bold rounded-xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] inline-flex items-center gap-2"
               >
                 <span>افتح لوحة التحكم وابدأ الآن</span>
                 <ArrowUpLeftIcon size={18} />
               </Link>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <Link
+                  href="/google-reviews"
+                  className="px-3.5 py-1.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 hover:border-[#C8FF2E] text-xs font-semibold text-[#C8FF2E] transition"
+                >
+                  ⭐ كارت تقييمات جوجل
+                </Link>
+                <Link
+                  href="/individuals"
+                  className="px-3.5 py-1.5 rounded-full bg-[#181818] border border-white/10 hover:border-[#C8FF2E] text-xs font-medium text-neutral-200 transition"
+                >
+                  👤 كارت الأفراد
+                </Link>
+                <Link
+                  href="/business"
+                  className="px-3.5 py-1.5 rounded-full bg-[#181818] border border-white/10 hover:border-[#C8FF2E] text-xs font-medium text-neutral-200 transition"
+                >
+                  🏢 كروت الشركات
+                </Link>
+                <Link
+                  href="/restaurants"
+                  className="px-3.5 py-1.5 rounded-full bg-[#181818] border border-white/10 hover:border-[#C8FF2E] text-xs font-medium text-neutral-200 transition"
+                >
+                  🍽️ نظام ولاء المطاعم
+                </Link>
+              </div>
 
               <p className="text-xs text-neutral-500">
                 يعمل فوراً على جميع هواتف iPhone و Android • ضمان استرجاع 365 يوماً

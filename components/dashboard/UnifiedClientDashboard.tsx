@@ -538,6 +538,16 @@ export default function UnifiedClientDashboard({
             </div>
           )}
 
+          {/* ================= FALLBACK WIZARD WHEN USER HAS 0 CARDS ================= */}
+          {!selectedCard && activeSection !== 'companies' && activeSection !== 'leads' && (
+            <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden">
+              <IndividualOnboardingWizard
+                userEmail={userEmail}
+                defaultName={defaultDisplayName}
+              />
+            </div>
+          )}
+
           {/* ================= TAB 1: MY CARD EDITOR ================= */}
           {activeSection === 'my_card' && selectedCard && (
             <>

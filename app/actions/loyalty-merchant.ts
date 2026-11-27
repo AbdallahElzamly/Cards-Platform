@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
 import { generateRandomPin, hashDailyPin } from '@/lib/loyalty-crypto';
 import { isSuperAdminEmail } from '@/lib/admin-auth';
+import { encodeRewardTermsAndMenu } from '@/lib/loyalty-menu';
 import { LoyaltyProgram } from '@/types/loyalty';
 
 export type DashboardFailureReason =
@@ -29,6 +30,7 @@ export interface RecentActivityItem {
 
 export interface MerchantDashboardData {
   merchantEmail: string;
+  isSuperAdmin: boolean;
   program: LoyaltyProgram;
   metrics: {
     todayVisits: number;
@@ -348,6 +350,7 @@ export async function getMerchantLoyaltyDashboard(
       success: true,
       data: {
         merchantEmail: user.email || '',
+        isSuperAdmin: isSuperAdminEmail(user.email),
         program: activeProgram,
         metrics: {
           todayVisits: todayVisits || 0,
@@ -386,6 +389,7 @@ export async function updateLoyaltyProgramSettings(formData: FormData): Promise<
     const primaryColor = formData.get('primary_color')?.toString()?.trim() || '#1E3A8A';
     const rewardTitle = formData.get('reward_title')?.toString()?.trim() || '';
     const rewardTerms = formData.get('reward_terms')?.toString()?.trim() || '';
+    const menuUrl = formData.get('menu_url')?.toString()?.trim() || '';
     const stampsRequired = parseInt(formData.get('stamps_required')?.toString() || '6', 10);
     const minBillEgp = parseInt(formData.get('min_bill_egp')?.toString() || '100', 10);
     const cooldownHours = parseInt(formData.get('cooldown_hours')?.toString() || '18', 10);
@@ -404,8 +408,11 @@ export async function updateLoyaltyProgramSettings(formData: FormData): Promise<
       return { success: false, error: 'لم يتم العثور على البرنامج.' };
     }
 
-    const cleanSlug = sanitizeSlug(rawSlug) || currentProg.slug;
+    // Only Super Admin can alter the slug; restaurant owners keep their KUWI-programmed slug intact
+    const canChangeSlug = isSuperAdminEmail(user.email);
+    const cleanSlug = canChangeSlug ? sanitizeSlug(rawSlug) || currentProg.slug : currentProg.slug;
     const validHex = /^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : '#1E3A8A';
+    const encodedRewardTerms = encodeRewardTermsAndMenu(rewardTerms, menuUrl);
 
     const { data: updated, error: updateError } = await admin
       .from('loyalty_programs')
@@ -414,7 +421,7 @@ export async function updateLoyaltyProgramSettings(formData: FormData): Promise<
         slug: cleanSlug,
         primary_color: validHex,
         reward_title: rewardTitle.slice(0, 80),
-        reward_terms: rewardTerms.slice(0, 200),
+        reward_terms: encodedRewardTerms,
         stamps_required: Math.min(Math.max(stampsRequired || 6, 3), 12),
         min_bill_egp: Math.max(minBillEgp || 0, 0),
         cooldown_hours: Math.min(Math.max(cooldownHours || 18, 1), 72),

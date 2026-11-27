@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import {
   LoyaltyVoucher,
   PublicLoyaltyMember,
   PublicLoyaltyProgram,
 } from '@/types/loyalty';
+import { parseRewardTermsAndMenu } from '@/lib/loyalty-menu';
 import {
   lookupOrRegisterAndStamp,
   stampReturningMemberAction,
@@ -61,15 +62,33 @@ export default function CustomerLoyaltyCard({
   const [pinError, setPinError] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
 
-  // Feedback & Celebration
+  // Feedback, Celebration & Post-Stamp Menu Redirect
   const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
+  const [menuCountdown, setMenuCountdown] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const parsedReward = parseRewardTermsAndMenu(program.reward_terms);
+  const menuUrl = parsedReward.menuUrl;
+  const cleanRewardTerms = parsedReward.terms;
 
   const stampsTotal = program.stamps_required || 6;
   const currentStamps = member?.current_stamps || 0;
   const remainingVisits = Math.max(0, stampsTotal - currentStamps);
   const brandColor = program.primary_color || '#1E3A8A';
   const isNearGoal = currentStamps >= Math.max(2, stampsTotal - 2) && currentStamps < stampsTotal;
+
+  // Optional 5-second post-stamp redirect countdown to Restaurant Digital Menu
+  useEffect(() => {
+    if (!menuUrl || menuCountdown === null) return;
+    if (menuCountdown <= 0) {
+      window.location.assign(menuUrl);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setMenuCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [menuCountdown, menuUrl]);
 
   // CRO & Apple HIG: Continuous celebration active whenever the member card is open with remaining visits or unlocked voucher
   const isCelebrationActive = Boolean(member && (remainingVisits > 0 || activeVoucher));
@@ -180,9 +199,11 @@ export default function CustomerLoyaltyCard({
       } else if (res.status === 'voucher_unlocked' || res.status === 'active_voucher') {
         setIsCooldown(false);
         setBannerSuccess('مبروك! وصلت للزيارة السادسة وفتحت قسيمة وجبتك المجانية 🎉');
+        if (menuUrl) setMenuCountdown(6);
       } else {
         setIsCooldown(false);
         setBannerSuccess('تم تسجيل زيارتك وإضافة ختم اليوم بنجاح! 🎈');
+        if (menuUrl) setMenuCountdown(5);
       }
 
       setPinSheetOpen(false);
@@ -284,7 +305,7 @@ export default function CustomerLoyaltyCard({
                 <GoldenVoucherCard
                   firstName={member.first_name}
                   voucher={activeVoucher}
-                  rewardTerms={program.reward_terms}
+                  rewardTerms={cleanRewardTerms}
                   onRequestRedeem={() => {
                     setPinMode('redeem');
                     setPinFlowOrigin('returning');
@@ -421,13 +442,41 @@ export default function CustomerLoyaltyCard({
                 </button>
               )}
 
+              {/* Digital Menu Redirect CTA (After Visit / Always Accessible) */}
+              {menuUrl && (
+                <div className="bg-[#0B0B0F] text-white rounded-2xl p-4 flex flex-col gap-2.5 border border-white/10">
+                  {menuCountdown !== null && menuCountdown > 0 && (
+                    <div className="flex items-center justify-between text-[11px] text-[#C8FF2E] font-bold">
+                      <span>جاري تحويلك تلقائياً إلى المنيو خلال {menuCountdown} ثوانٍ...</span>
+                      <button
+                        type="button"
+                        onClick={() => setMenuCountdown(null)}
+                        className="underline text-white/80 hover:text-white cursor-pointer"
+                      >
+                        إلغاء التحويل
+                      </button>
+                    </div>
+                  )}
+                  <a
+                    href={menuUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full min-h-[48px] py-3 px-4 bg-[#C8FF2E] hover:brightness-95 text-[#0B0B0F] font-black rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <span>تصفح المنيو واطلب الآن</span>
+                    <span>🍽️</span>
+                  </a>
+                </div>
+              )}
+
               {/* Reward Terms & Details */}
               <div className="bg-slate-50/80 rounded-2xl p-3.5 text-center border border-slate-200/60">
                 <p className="text-xs font-black text-slate-800 mb-0.5">
                   🎁 المكافأة: {program.reward_title}
                 </p>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م • {program.reward_terms}
+                  تُحتسب الزيارة عند حد أدنى للفاتورة {program.min_bill_egp} ج.م
+                  {cleanRewardTerms ? ` • ${cleanRewardTerms}` : ''}
                 </p>
               </div>
 

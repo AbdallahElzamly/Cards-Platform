@@ -7,6 +7,7 @@ import {
   rotateDailyPinAction,
 } from '@/app/actions/loyalty-merchant';
 import { merchantSignOutAction } from '@/app/actions/auth';
+import { parseRewardTermsAndMenu } from '@/lib/loyalty-menu';
 
 interface MerchantLoyaltyDashboardProps {
   initialData: MerchantDashboardData;
@@ -29,6 +30,8 @@ export default function MerchantLoyaltyDashboard({
   const [isPending, startTransition] = useTransition();
 
   const metrics = initialData.metrics;
+  const isSuperAdmin = initialData.isSuperAdmin;
+  const parsedReward = parseRewardTermsAndMenu(program.reward_terms);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const tableSuffix = tableInput.trim() ? `?t=${encodeURIComponent(tableInput.trim())}` : '';
   const directNfcUrl = `${origin}/l/${program.slug}${tableSuffix}`;
@@ -188,65 +191,111 @@ export default function MerchantLoyaltyDashboard({
             </button>
           </div>
 
-          {/* NFC & Dynamic QR Table Link Card */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/70 flex flex-col justify-between gap-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
-                  برمجة شرائح NFC ورموز QR 📲
+          {/* Right Hero Card: Super Admin NFC/QR Programmer OR Merchant Managed Hardware & Menu Status */}
+          {isSuperAdmin ? (
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/70 flex flex-col justify-between gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-3 py-1 rounded-full">
+                    برمجة شرائح NFC ورموز QR (للمشرف فقط) 📲
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-[11px] font-bold text-slate-500">رقم الطاولة:</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      maxLength={10}
+                      value={tableInput}
+                      onChange={(e) => setTableInput(e.target.value)}
+                      placeholder="1"
+                      className="w-14 px-2 py-1 text-center font-mono text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2.5">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">
+                      الرابط المباشر السريع (NFC Tag):
+                    </span>
+                    <p dir="ltr" className="font-mono text-xs text-slate-800 break-all text-left">
+                      {directNfcUrl}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">
+                      بوابة التحويل الديناميكي بدون كاش (Dynamic QR):
+                    </span>
+                    <p dir="ltr" className="font-mono text-xs text-slate-800 break-all text-left">
+                      {dynamicGatewayUrl}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(directNfcUrl, 'direct')}
+                  className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-2xl transition text-xs cursor-pointer"
+                >
+                  {copiedType === 'direct' ? 'تم النسخ ✓' : 'نسخ رابط NFC المباشر 📋'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(dynamicGatewayUrl, 'gateway')}
+                  className="py-3 px-4 bg-blue-50 hover:bg-blue-100 text-blue-800 font-extrabold rounded-2xl transition text-xs cursor-pointer"
+                >
+                  {copiedType === 'gateway' ? 'تم النسخ ✓' : 'نسخ رابط بوابة QR 🔗'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/70 flex flex-col justify-between gap-4">
+              <div>
+                <span className="inline-block text-xs font-extrabold text-[#7C3AED] bg-purple-50 border border-purple-200 px-3 py-1 rounded-full mb-3">
+                  ستاندات الطاولات والمنيو الرقمي 🍽️
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-500">رقم الطاولة:</label>
-                  <input
-                    type="text"
-                    dir="ltr"
-                    maxLength={10}
-                    value={tableInput}
-                    onChange={(e) => setTableInput(e.target.value)}
-                    placeholder="1"
-                    className="w-14 px-2 py-1 text-center font-mono text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg"
-                  />
+                <h2 className="text-base font-black text-slate-900 mb-2">
+                  كروت وستاندات الطاولات مبرمجة ومؤمّنة بالكامل من KUWI
+                </h2>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  لا تحتاج لأي برمجة تقنية؛ كل ستاند NFC أو QR على طاولات مطعمك مربوط مباشرة ببرنامج الولاء الخاص بك. يمكنك من الإعدادات بالأسفل إضافة <strong>رابط المنيو الرقمي</strong> ليتم تحويل العميل إليه تلقائياً بعد تسجيل زيارته.
+                </p>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+                  <span className="font-bold text-slate-500 block mb-1">حالة تحويل المنيو بعد الختم:</span>
+                  {parsedReward.menuUrl ? (
+                    <a
+                      href={parsedReward.menuUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      dir="ltr"
+                      className="font-mono text-emerald-700 font-bold break-all underline"
+                    >
+                      ✓ {parsedReward.menuUrl}
+                    </a>
+                  ) : (
+                    <span className="text-amber-700 font-bold">
+                      لم تتم إضافة رابط المنيو بعد — أضفه في الإعدادات بالأسفل
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-3 space-y-2.5">
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
-                  <span className="text-[10px] font-bold text-slate-400 block mb-1">
-                    الرابط المباشر السريع (NFC Tag):
-                  </span>
-                  <p dir="ltr" className="font-mono text-xs text-slate-800 break-all text-left">
-                    {directNfcUrl}
-                  </p>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
-                  <span className="text-[10px] font-bold text-slate-400 block mb-1">
-                    بوابة التحويل الديناميكي بدون كاش (Dynamic QR):
-                  </span>
-                  <p dir="ltr" className="font-mono text-xs text-slate-800 break-all text-left">
-                    {dynamicGatewayUrl}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleCopy(directNfcUrl, 'direct')}
-                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-2xl transition text-xs cursor-pointer"
+              <a
+                href={`https://wa.me/201112708046?text=${encodeURIComponent(
+                  `أهلاً فريق KUWI، نرغب في طلب ستاندات/كروت NFC إضافية لمطعم ${program.business_name}.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full min-h-[46px] py-3 px-4 bg-[#0B0B0F] hover:bg-neutral-800 text-[#C8FF2E] font-extrabold rounded-2xl transition text-xs flex items-center justify-center gap-2"
               >
-                {copiedType === 'direct' ? 'تم النسخ ✓' : 'نسخ رابط NFC المباشر 📋'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCopy(dynamicGatewayUrl, 'gateway')}
-                className="py-3 px-4 bg-blue-50 hover:bg-blue-100 text-blue-800 font-extrabold rounded-2xl transition text-xs cursor-pointer"
-              >
-                {copiedType === 'gateway' ? 'تم النسخ ✓' : 'نسخ رابط بوابة QR 🔗'}
-              </button>
+                <span>طلب ستاندات طاولات إضافية من KUWI ↗</span>
+              </a>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 4 Live KPI Strip (Matches LOYALTY_SPEC S09) */}
@@ -310,17 +359,35 @@ export default function MerchantLoyaltyDashboard({
               />
             </div>
 
-            <div>
+            {isSuperAdmin ? (
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                  الرابط المختصر للمطعم (Slug بالإنجليزية — للمشرف)
+                </label>
+                <input
+                  type="text"
+                  name="slug"
+                  dir="ltr"
+                  defaultValue={program.slug}
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-mono text-left focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            ) : (
+              <input type="hidden" name="slug" value={program.slug} />
+            )}
+
+            <div className={isSuperAdmin ? 'sm:col-span-2' : ''}>
               <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                الرابط المختصر للمطعم (Slug بالإنجليزية)
+                رابط المنيو الرقمي للمطعم (يُحوَّل إليه العميل بعد تسجيل الزيارة 🍽️)
               </label>
               <input
-                type="text"
-                name="slug"
+                type="url"
+                name="menu_url"
                 dir="ltr"
-                defaultValue={program.slug}
-                required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-mono text-left focus:outline-none focus:border-blue-600"
+                defaultValue={parsedReward.menuUrl}
+                placeholder="https://menu.your-restaurant.com"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-mono text-left focus:outline-none focus:border-purple-600"
               />
             </div>
 
@@ -361,7 +428,7 @@ export default function MerchantLoyaltyDashboard({
               <input
                 type="text"
                 name="reward_terms"
-                defaultValue={program.reward_terms}
+                defaultValue={parsedReward.terms}
                 required
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-blue-600"
               />
