@@ -1,15 +1,16 @@
-# Plan: Fix Supabase Client Initialization & Error Resilience Across Dashboard & Gateway
+# Plan: Fix Card Activation Lookup & Normalization (`/activate/[code]`)
 
 ## Overview
-Fix the Supabase client initialization error (`Error: Your project's URL and Key are required to create a Supabase client!`) on `/dashboard` and other server/client routes by ensuring a robust, consistent fallback chain for environment variables across all `createServerClient` and `createBrowserClient` calls, and adding graceful error handling for missing keys or sessions.
+Fix the issue where existing unclaimed cards (e.g. `ZQ7C24`) display "الكارت غير موجود في النظام" on `/activate/[code]`.
+Root cause: Case sensitivity (`.toUpperCase()` vs `.toLowerCase()`), `ilike` query mismatch, or client-side RLS restrictions when querying `unclaimed` cards prior to authentication.
 
 ## Detailed Steps & File Plan
-1. **Supabase Client Fallback Standardization:**
-   - Audit all files using `createServerClient` or `createBrowserClient` (`app/dashboard/page.tsx`, `app/admin/page.tsx`, `app/actions/admin.ts`, `app/actions/dashboard.ts`, `app/actions/loyalty-merchant.ts`, `components/cards/SmartBusinessCardClient.tsx`, `components/admin/AdminBatchDashboard.tsx`, `components/dashboard/UnifiedClientDashboard.tsx`, `app/activate/[code]/page.tsx`, `app/auth/login/page.tsx`, etc.).
-   - Ensure Key fallback: `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'public-key-placeholder'`.
-   - Ensure URL fallback: `process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'`.
-2. **Graceful Error Resilience:**
-   - In `app/dashboard/page.tsx`, `app/admin/page.tsx`, `app/activate/[code]/page.tsx`, and `app/q/[code]/page.tsx`, guard against missing environment variables or DB connection errors, rendering friendly fallback screens instead of throwing unhandled exceptions.
-3. **Verification & Commit:**
+1. **Normalize Code (`app/activate/[code]/page.tsx` & `app/q/[code]/page.tsx`):**
+   - Normalize code using `decodeURIComponent(code).trim().toUpperCase()` consistently.
+2. **Server-Side Card Lookup for Activation:**
+   - In `app/activate/[code]/page.tsx`, fetch the card server-side (or via `supabaseAdmin` / safe query) to ensure `unclaimed` cards are retrieved reliably without RLS blocking unauthenticated or pre-auth views.
+3. **Claim & Activate Logic:**
+   - Update card (`owner_id = user.id`, `status = 'active'`), create/link `business_cards` with unique slug or set `target_url`, then redirect to `/dashboard` or `/c/[slug]`.
+4. **Verification & Commit:**
    - Run `npx tsc --noEmit` and `npm run build`.
-   - Commit and push to `feat/unified-nfc-platform`.
+   - Commit and push to `main`.

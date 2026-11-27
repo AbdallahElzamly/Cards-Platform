@@ -14,13 +14,13 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
     notFound();
   }
 
-  const normalizedCode = decodeURIComponent(code).trim().toLowerCase();
+  const normalizedCode = decodeURIComponent(code).trim().toUpperCase();
 
-  // 1. Look up code in cards table
+  // 1. Look up code in cards table using exact uppercase normalized code
   const { data: card, error } = await supabaseAdmin
     .from('cards')
     .select('*')
-    .ilike('code', normalizedCode)
+    .eq('code', normalizedCode)
     .single();
 
   if (error || !card) {
@@ -32,7 +32,7 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
           </div>
           <h1 className="text-xl font-bold text-slate-900 mb-2">الكارت غير موجود</h1>
           <p className="text-sm text-slate-600 mb-6">
-            عذراً، هذا الكارت غير مسجل في النظام أو تم إيقافه.
+            عذراً، هذا الكارت ({normalizedCode}) غير مسجل في النظام أو تم إيقافه.
           </p>
         </div>
       </div>
