@@ -73,13 +73,15 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
   return (
     <div
       className="min-h-screen flex items-center justify-center p-4 sm:p-6 font-sans antialiased"
-      style={{ backgroundColor: card.theme_color || '#0F172A' }}
+      style={{
+        background: `linear-gradient(135deg, ${card.theme_color || '#0F172A'} 0%, #1e293b 100%)`,
+      }}
       dir="rtl"
     >
-      <div className="w-full max-w-[430px] bg-white/95 backdrop-blur-2xl rounded-[36px] shadow-2xl shadow-black/30 overflow-hidden border border-white/40 p-6 sm:p-8 flex flex-col gap-6 transition-all">
+      <div className="w-full max-w-[420px] bg-white/95 backdrop-blur-2xl rounded-[32px] shadow-2xl shadow-black/30 overflow-hidden border border-white/30 p-6 sm:p-8 flex flex-col gap-6 transition-all">
         
         {isLost && (
-          <div className="p-4 bg-amber-400 text-slate-950 font-black rounded-2xl text-xs text-center shadow-md animate-pulse border border-amber-500">
+          <div className="p-3.5 bg-amber-400 text-slate-950 font-black rounded-2xl text-xs text-center shadow-md animate-pulse border border-amber-500">
             ⚠️ تنبيه: هذا الكارت مبلغ عن فقدانه. إذا عثرت عليه يرجى الاتصال بصاحبه أدناه.
           </div>
         )}
@@ -104,7 +106,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
           </h1>
 
           {card.job_title && (
-            <p className="text-sm font-semibold text-blue-600 mb-0.5">
+            <p className="text-xs font-bold text-blue-600 tracking-wide uppercase mb-0.5">
               {card.job_title}
             </p>
           )}
@@ -116,7 +118,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
           )}
 
           {card.bio && isFieldVisible('bio') && (
-            <p className="text-xs text-slate-600 mt-3 px-3 leading-relaxed bg-slate-50/80 py-3 rounded-2xl border border-slate-100 w-full text-center">
+            <p className="text-xs text-slate-600 mt-3 px-3 leading-relaxed bg-slate-50/90 py-3 rounded-2xl border border-slate-100 w-full text-center">
               {card.bio}
             </p>
           )}

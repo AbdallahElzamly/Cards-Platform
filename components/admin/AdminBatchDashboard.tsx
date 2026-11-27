@@ -13,6 +13,7 @@ interface AdminBatchDashboardProps {
 export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashboardProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleGenerate = (e: React.FormEvent<HTMLFormElement>) => {
@@ -39,16 +40,24 @@ export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashbo
     });
   };
 
-  // CSV Export with UTF-8 BOM
+  const handleCopyActivationLink = (code: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kuwi-liart.vercel.app';
+    const link = `${origin}/activate/${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
   const handleExportCSV = () => {
     const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://kuwi-liart.vercel.app';
-    const headers = ['code', 'product', 'batch_name', 'status', 'qr_url'];
+    const headers = ['code', 'product', 'batch_name', 'status', 'qr_url', 'activation_url'];
     const rows = cards.map((c) => [
       c.code,
       c.product,
       c.batch_name || '',
       c.status,
       `${siteUrl}/q/${c.code}`,
+      `${siteUrl}/activate/${c.code}`,
     ]);
 
     const csvContent =
@@ -72,7 +81,7 @@ export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashbo
         <div className="flex items-center justify-between bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div>
             <h1 className="text-2xl font-black text-slate-900 mb-1">لوحة تحكم المشرف (Admin)</h1>
-            <p className="text-xs text-slate-500">توليد الدفعات، إدارة الكروت، وتصدير ملفات الطباعة CSV.</p>
+            <p className="text-xs text-slate-500">توليد الدفعات، نسخ روابط التفعيل، وتصدير ملفات الطباعة CSV.</p>
           </div>
           <Link
             href="/dashboard"
@@ -145,7 +154,7 @@ export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashbo
               />
             </div>
 
-            <div className="sm:col-span-2 lg:col-span-4 pt-2 flex items-center justify-between">
+            <div className="sm:col-span-2 lg:col-span-4 pt-2 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="submit"
                 disabled={isPending}
@@ -179,6 +188,7 @@ export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashbo
                   <th className="pb-3 px-2">المنتج</th>
                   <th className="pb-3 px-2">اسم الدفعة</th>
                   <th className="pb-3 px-2">الحالة</th>
+                  <th className="pb-3 px-2">رابط التفعيل</th>
                   <th className="pb-3 pl-2 text-left">إجراءات</th>
                 </tr>
               </thead>
@@ -201,7 +211,17 @@ export default function AdminBatchDashboard({ cards, batches }: AdminBatchDashbo
                         <option value="unclaimed">غير مفعل (unclaimed)</option>
                         <option value="active">نشط (active)</option>
                         <option value="suspended">موقوف (suspended)</option>
+                        <option value="lost">مفقود (lost)</option>
                       </select>
+                    </td>
+                    <td className="py-3 px-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyActivationLink(card.code)}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl transition text-[11px]"
+                      >
+                        {copiedCode === card.code ? 'تم النسخ ✓' : 'نسخ رابط التفعيل 📋'}
+                      </button>
                     </td>
                     <td className="py-3 pl-2 text-left">
                       <a
