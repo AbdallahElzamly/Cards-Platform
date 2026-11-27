@@ -67,7 +67,13 @@ export default async function AdminPage() {
 
     const dashboardData = await getAdminDashboardData();
 
-    return <AdminBatchDashboard cards={dashboardData.cards} batches={dashboardData.batches} />;
+    return (
+      <AdminBatchDashboard
+        cards={dashboardData.cards}
+        batches={dashboardData.batches}
+        companies={dashboardData.companies}
+      />
+    );
   } catch (err) {
     console.error('AdminPage error:', err);
     return (

@@ -1,14 +1,18 @@
-# Plan: WhatsApp Fix, UI/UX Redesign, Right-Side Navigation Sidebar, and Admin Activation Link Copy
+# Finalized Plan: Admin Separation (Individuals vs Companies) & Interactive Company Portal (`/org/[slug]`)
 
 ## Overview
-Execute remaining enhancements on branch `main` while keeping `/dashboard/loyalty`, `/l/[slug]`, and `loyalty_*` tables 100% untouched:
-1. **WhatsApp Normalization & Card Redesign (`SmartBusinessCardClient.tsx`):**
-   - Robust number formatter for `wa.me`, rendering only when valid.
-   - Professional, refined UI/UX design following `figma-designer` and `landing-page-design` (cohesive glassmorphism, subtle gradients, clean typography, refined payment chips, uncluttered lead form).
-2. **Right-Side Navigation Sidebar (`UnifiedClientDashboard.tsx` & `AdminBatchDashboard.tsx`):**
-   - Clean Arabic RTL right-hand sidebar (`aside`) for switching sections (`نظرة عامة`, `كروتي الذكية`, `العملاء المحتملون`, `العُهدة والمفقود`) plus quick links to loyalty and admin.
-3. **Direct Activation Link Copy in `/admin` (`AdminBatchDashboard.tsx`):**
-   - One-click "نسخ رابط التفعيل" button per card row copying `${origin}/activate/<code>` with toast/copied feedback.
-4. **Verification & Build:**
-   - Run `npx tsc --noEmit` and `npx next build`.
-   - Commit and push to `main`.
+Implement clear separation between Individuals (الأفراد) and Companies (الشركات) inside `/admin`, plus a dedicated interactive Company Workspace view/route on branch `main` while keeping `/dashboard/loyalty`, `/l/[slug]`, and `loyalty_*` tables 100% untouched.
+
+## Detailed Steps & File Plan
+1. **Admin Separation (`AdminBatchDashboard.tsx`, `app/admin/page.tsx`, `app/actions/admin.ts`):**
+   - Split `/admin` into two distinct tabs: **الأفراد (Individuals)** and **الشركات (Companies)**.
+   - Individuals tab: Batch generation, direct activation link copy (`/activate/<code>`), status management, and individual ownership transfer.
+   - Companies tab: Create/manage company workspaces (name, contact email, assigned batch), generate/copy a shareable **Company Interactive Portal Link** (`/org/[slug]`), and view summary stats.
+2. **Interactive Company Portal (`app/org/[slug]/page.tsx` & `CompanyPortalClient.tsx`):**
+   - Card Links for NFC / QR (`/q/[code]`, employee name, status).
+   - Who each card connected with (`card_leads`, visitor name, phone, note, timestamp, scan counts).
+   - One-click Excel CSV export with UTF-8 BOM (`\uFEFF`).
+   - Employee custody / reassignment (`تحديث عُهدة الموظف` & clearing leads option).
+3. **Verification & Push:**
+   - Run `npx tsc --noEmit` and `npm run build` with zero errors.
+   - Commit all changes and push to `main`.

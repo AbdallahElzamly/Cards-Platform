@@ -51,3 +51,12 @@ export interface Scan {
   city: string | null;
   country: string | null;
 }
+
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  contact_email: string | null;
+  batch_name: string | null;
+  created_at: string;
+}

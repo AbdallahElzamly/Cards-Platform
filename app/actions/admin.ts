@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { Card, CardProduct, CardStatus } from '@/types/smart-cards';
+import { Card, CardProduct, CardStatus, Company } from '@/types/smart-cards';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key';
@@ -122,10 +122,47 @@ export async function updateCardStatusAction(cardId: string, status: CardStatus,
   }
 }
 
+export async function createCompanyAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  const isAdmin = await checkIsAdmin();
+  if (!isAdmin) {
+    return { success: false, error: 'غير مصرح بالدخول' };
+  }
+
+  try {
+    const name = formData.get('name')?.toString()?.trim() || '';
+    const contactEmail = formData.get('contact_email')?.toString()?.trim() || null;
+    const batchName = formData.get('batch_name')?.toString()?.trim() || null;
+
+    if (!name) {
+      return { success: false, error: 'اسم الشركة مطلوب' };
+    }
+
+    const slug = name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    const { error } = await supabaseAdmin.from('companies').insert({
+      name,
+      slug,
+      contact_email: contactEmail,
+      batch_name: batchName,
+    });
+
+    if (error) throw error;
+
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (err: any) {
+    console.error('createCompanyAction error:', err);
+    return { success: false, error: err.message || 'فشل إنشاء مساحة الشركة' };
+  }
+}
+
 export async function getAdminDashboardData(batchFilter?: string, statusFilter?: string, searchQuery?: string) {
   const isAdmin = await checkIsAdmin();
   if (!isAdmin) {
-    return { isAdmin: false, cards: [], batches: [] };
+    return { isAdmin: false, cards: [], batches: [], companies: [] };
   }
 
   try {
@@ -143,6 +180,7 @@ export async function getAdminDashboardData(batchFilter?: string, statusFilter?:
 
     const { data: cards } = await query;
     const { data: allCards } = await supabaseAdmin.from('cards').select('batch_name');
+    const { data: companies } = await supabaseAdmin.from('companies').select('*').order('created_at', { ascending: false });
 
     const batches = Array.from(new Set((allCards || []).map((c: any) => c.batch_name).filter(Boolean)));
 
@@ -150,9 +188,10 @@ export async function getAdminDashboardData(batchFilter?: string, statusFilter?:
       isAdmin: true,
       cards: cards || [],
       batches,
+      companies: (companies || []) as Company[],
     };
   } catch (err) {
     console.error('getAdminDashboardData error:', err);
-    return { isAdmin: true, cards: [], batches: [] };
+    return { isAdmin: true, cards: [], batches: [], companies: [] };
   }
 }
