@@ -21,7 +21,16 @@ export async function GET(
     return NextResponse.json({ error: 'Business card not found' }, { status: 404 });
   }
 
-  // Build valid vCard v3.0 format
+  const visibleFields = (card.social_links as any)?.visible_fields || {};
+  const isFieldVisible = (key: string) => visibleFields[key] !== false;
+
+  const phone = card.phone && isFieldVisible('phone') ? card.phone : '';
+  const whatsapp = card.whatsapp && isFieldVisible('whatsapp') ? card.whatsapp : '';
+  const email = card.email && isFieldVisible('email') ? card.email : '';
+  const website = card.website && isFieldVisible('website') ? card.website : '';
+  const bio = card.bio && isFieldVisible('bio') ? card.bio : '';
+
+  // Build valid vCard v3.0 format respecting privacy toggles
   const vcard = [
     'BEGIN:VCARD',
     'VERSION:3.0',
@@ -29,11 +38,11 @@ export async function GET(
     `N:;${card.full_name};;;`,
     card.company ? `ORG:${card.company}` : '',
     card.job_title ? `TITLE:${card.job_title}` : '',
-    card.phone ? `TEL;TYPE=CELL,VOICE:${card.phone}` : '',
-    card.whatsapp ? `TEL;TYPE=WORK,VOICE:${card.whatsapp}` : '',
-    card.email ? `EMAIL;TYPE=INTERNET:${card.email}` : '',
-    card.website ? `URL:${card.website}` : '',
-    card.bio ? `NOTE:${card.bio.replace(/\n/g, '\\n')}` : '',
+    phone ? `TEL;TYPE=CELL,VOICE:${phone}` : '',
+    whatsapp ? `TEL;TYPE=WORK,VOICE:${whatsapp}` : '',
+    email ? `EMAIL;TYPE=INTERNET:${email}` : '',
+    website ? `URL:${website}` : '',
+    bio ? `NOTE:${bio.replace(/\n/g, '\\n')}` : '',
     'END:VCARD',
   ]
     .filter(Boolean)

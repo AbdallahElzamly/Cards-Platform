@@ -18,6 +18,9 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
   const [imageError, setImageError] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const visibleFields = (card.social_links as any)?.visible_fields || {};
+  const isFieldVisible = (key: string) => visibleFields[key] !== false;
+
   const handleLeadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -73,12 +76,14 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
           <h1 className="text-xl font-black text-slate-900 mb-1">{card.full_name}</h1>
           {card.job_title && <p className="text-xs font-semibold text-blue-600 mb-0.5">{card.job_title}</p>}
           {card.company && <p className="text-xs text-slate-500">{card.company}</p>}
-          {card.bio && <p className="text-xs text-slate-600 mt-3 px-4 leading-relaxed">{card.bio}</p>}
+          {card.bio && isFieldVisible('bio') && (
+            <p className="text-xs text-slate-600 mt-3 px-4 leading-relaxed">{card.bio}</p>
+          )}
         </div>
 
         {/* Primary Contact Actions */}
         <div className="grid grid-cols-2 gap-3">
-          {card.phone && (
+          {card.phone && isFieldVisible('phone') && (
             <a
               href={`tel:${card.phone}`}
               className="py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs text-center transition shadow-sm flex items-center justify-center gap-2"
@@ -86,7 +91,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               <span>📞 اتصال مباشر</span>
             </a>
           )}
-          {card.whatsapp && (
+          {card.whatsapp && isFieldVisible('whatsapp') && (
             <a
               href={`https://wa.me/${card.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
@@ -108,7 +113,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
 
         {/* Secondary Info & Payment Links */}
         <div className="flex flex-col gap-2.5">
-          {card.email && (
+          {card.email && isFieldVisible('email') && (
             <a
               href={`mailto:${card.email}`}
               className="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 text-xs text-slate-700 flex items-center justify-between transition"
@@ -117,7 +122,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               <span className="font-mono text-slate-500">{card.email}</span>
             </a>
           )}
-          {card.website && (
+          {card.website && isFieldVisible('website') && (
             <a
               href={card.website}
               target="_blank"
@@ -128,7 +133,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               <span className="font-mono text-blue-600">زيارة الموقع ↗</span>
             </a>
           )}
-          {card.vodafone_cash && (
+          {card.vodafone_cash && isFieldVisible('vodafone_cash') && (
             <div className="p-3 bg-red-50/70 rounded-xl border border-red-100 text-xs text-slate-700 flex items-center justify-between">
               <span className="font-medium text-red-900">فودافون كاش</span>
               <button
@@ -139,7 +144,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               </button>
             </div>
           )}
-          {card.instapay_url && (
+          {card.instapay_url && isFieldVisible('instapay') && (
             <a
               href={card.instapay_url}
               target="_blank"

@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { Card, BusinessCard } from '@/types/smart-cards';
 import { updateBusinessCardAction, updateReviewCardTargetUrlAction } from '@/app/actions/dashboard';
+import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 
 interface CardWithDetails extends Card {
@@ -27,35 +28,81 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
   const [activeTab, setActiveTab] = useState<'cards' | 'loyalty'>('cards');
   const [selectedCardId, setSelectedCardId] = useState<string>(cards[0]?.id || '');
   const [avatarUrl, setAvatarUrl] = useState<string>(cards[0]?.business_card?.avatar_url || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-anon-key'
+  );
+
   const selectedCard = cards.find((c) => c.id === selectedCardId) || cards[0];
+  const initialVisibleFields = (selectedCard?.business_card?.social_links as any)?.visible_fields || {};
+  const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>(initialVisibleFields);
 
   const handleCardSelect = (id: string) => {
     setSelectedCardId(id);
     const found = cards.find((c) => c.id === id);
     setAvatarUrl(found?.business_card?.avatar_url || '');
+    setVisibleFields((found?.business_card?.social_links as any)?.visible_fields || {});
   };
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('حجم الصورة كبير جداً (الحد الأقصى 2 ميجابايت)');
+    if (file.size > 3 * 1024 * 1024) {
+      setErrorMsg('حجم الصورة كبير جداً (الحد الأقصى 3 ميجابايت)');
       return;
     }
 
+    setUploadingAvatar(true);
+    setErrorMsg(null);
+
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `avatar-${selectedCard?.id || 'card'}-${Date.now()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, {
+        upsert: true,
+      });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          setAvatarUrl(publicUrlData.publicUrl);
+          setUploadingAvatar(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase storage upload fallback to base64:', err);
+    }
+
+    // Fallback to Data URL / Base64 if storage bucket not configured
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const result = uploadEvent.target?.result as string;
       if (result) {
         setAvatarUrl(result);
       }
+      setUploadingAvatar(false);
+    };
+    reader.onerror = () => {
+      setUploadingAvatar(false);
+      setErrorMsg('فشل قراءة ملف الصورة');
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleToggleField = (fieldKey: string) => {
+    setVisibleFields((prev) => ({
+      ...prev,
+      [fieldKey]: prev[fieldKey] === false ? true : false,
+    }));
   };
 
   const handleBusinessSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -69,12 +116,20 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
       formData.set('avatar_url', avatarUrl);
     }
 
+    // Attach visible fields inside social_links jsonb string or form field
+    const existingSocials = selectedCard.business_card?.social_links || {};
+    const updatedSocials = {
+      ...(typeof existingSocials === 'object' ? existingSocials : {}),
+      visible_fields: visibleFields,
+    };
+    formData.set('social_links_json', JSON.stringify(updatedSocials));
+
     startTransition(async () => {
       const res = await updateBusinessCardAction(selectedCard.id, formData);
       if (!res.success) {
         setErrorMsg(res.error || 'فشل التحديث');
       } else {
-        setSuccessMsg('تم حفظ وتحديث الكارت بنجاح! ✅');
+        setSuccessMsg('تم حفظ وتحديث الكارت وإعدادات الخصوصية بنجاح! ✅');
       }
     });
   };
@@ -266,7 +321,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                 {/* Editor Forms */}
                 {selectedCard && selectedCard.product === 'business' && selectedCard.business_card && (
                   <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 className="text-base font-bold text-slate-900 mb-4">تعديل محتوى كارت الأعمال الذكي</h3>
+                    <h3 className="text-base font-bold text-slate-900 mb-4">تعديل محتوى كارت الأعمال الذكي والخصوصية</h3>
                     
                     <form onSubmit={handleBusinessSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
@@ -393,6 +448,36 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-right"
                             />
                           </div>
+                        </div>
+                        {uploadingAvatar && <p className="text-[11px] text-blue-600">جاري رفع الصورة...</p>}
+                      </div>
+
+                      {/* Selective Field Privacy Toggles */}
+                      <div className="sm:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <h4 className="text-xs font-bold text-slate-800 mb-3">إظهار/إخفاء الحقول (Privacy Toggles)</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {[
+                            { key: 'phone', label: 'الاتصال المباشر' },
+                            { key: 'whatsapp', label: 'واتساب' },
+                            { key: 'email', label: 'البريد الإلكتروني' },
+                            { key: 'website', label: 'الموقع' },
+                            { key: 'vodafone_cash', label: 'فودافون كاش' },
+                            { key: 'instapay', label: 'انستاباي' },
+                            { key: 'bio', label: 'النبذة التعريفية' },
+                          ].map(({ key, label }) => {
+                            const isVisible = visibleFields[key] !== false;
+                            return (
+                              <label key={key} className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-xl border border-slate-200">
+                                <input
+                                  type="checkbox"
+                                  checked={isVisible}
+                                  onChange={() => handleToggleField(key)}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-[11px] font-medium text-slate-700">{label}</span>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
 
