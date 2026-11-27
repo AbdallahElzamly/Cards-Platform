@@ -20,9 +20,29 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [targetUrl, setTargetUrl] = useState(card.target_url || '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('حجم الصورة كبير جداً (الحد الأقصى 2 ميجابايت)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      if (result) {
+        setAvatarUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,6 +51,9 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
     const formData = new FormData(e.currentTarget);
     formData.set('code', code);
     formData.set('product_type', productType);
+    if (avatarUrl) {
+      formData.set('avatar_url', avatarUrl);
+    }
 
     startTransition(async () => {
       const res = await activateCardAction(formData);
@@ -129,6 +152,28 @@ export default function ActivateCardClient({ card, code }: ActivateCardClientPro
                   placeholder="01012345678"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none text-right font-mono"
                 />
+              </div>
+
+              {/* Profile Photo / Avatar Support */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">الصورة الشخصية / الشعار (Avatar)</label>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <input
+                    type="url"
+                    name="avatar_url"
+                    dir="ltr"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="أو أدخل رابط صورة مباشر https://..."
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-right"
+                  />
+                </div>
               </div>
             </>
           ) : (

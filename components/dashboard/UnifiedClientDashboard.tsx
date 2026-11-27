@@ -26,11 +26,37 @@ interface UnifiedClientDashboardProps {
 export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmail }: UnifiedClientDashboardProps) {
   const [activeTab, setActiveTab] = useState<'cards' | 'loyalty'>('cards');
   const [selectedCardId, setSelectedCardId] = useState<string>(cards[0]?.id || '');
+  const [avatarUrl, setAvatarUrl] = useState<string>(cards[0]?.business_card?.avatar_url || '');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) || cards[0];
+
+  const handleCardSelect = (id: string) => {
+    setSelectedCardId(id);
+    const found = cards.find((c) => c.id === id);
+    setAvatarUrl(found?.business_card?.avatar_url || '');
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('حجم الصورة كبير جداً (الحد الأقصى 2 ميجابايت)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      if (result) {
+        setAvatarUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleBusinessSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,6 +65,9 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
     setSuccessMsg(null);
 
     const formData = new FormData(e.currentTarget);
+    if (avatarUrl) {
+      formData.set('avatar_url', avatarUrl);
+    }
 
     startTransition(async () => {
       const res = await updateBusinessCardAction(selectedCard.id, formData);
@@ -69,7 +98,6 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
     });
   };
 
-  // CSV Export for Leads
   const handleExportLeads = (leads: any[]) => {
     const headers = ['visitor_name', 'visitor_phone', 'visitor_note', 'created_at'];
     const rows = leads.map((l) => [l.visitor_name, l.visitor_phone, l.visitor_note || '', l.created_at]);
@@ -182,7 +210,7 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                       <span className="text-xs text-slate-400 font-medium">اختر الكارت للإدارة</span>
                       <select
                         value={selectedCardId}
-                        onChange={(e) => setSelectedCardId(e.target.value)}
+                        onChange={(e) => handleCardSelect(e.target.value)}
                         className="w-full mt-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
                       >
                         {cards.map((c) => (
@@ -335,6 +363,37 @@ export default function UnifiedClientDashboard({ cards, loyaltyProgram, userEmai
                           defaultValue={selectedCard.business_card.bio || ''}
                           className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                         />
+                      </div>
+
+                      {/* Avatar Upload / URL */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">الصورة الشخصية / الشعار (Avatar)</label>
+                        <div className="flex items-center gap-4 mb-2">
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt="Avatar Preview" className="w-14 h-14 rounded-full object-cover border" />
+                          ) : (
+                            <div className="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-500 font-bold">
+                              بدون صورة
+                            </div>
+                          )}
+                          <div className="flex-1 flex flex-col gap-2">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageFileChange}
+                              className="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            />
+                            <input
+                              type="url"
+                              name="avatar_url"
+                              dir="ltr"
+                              value={avatarUrl}
+                              onChange={(e) => setAvatarUrl(e.target.value)}
+                              placeholder="أو أدخل رابط صورة مباشر https://..."
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-right"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div>

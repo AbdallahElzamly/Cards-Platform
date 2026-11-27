@@ -1,15 +1,14 @@
-# Plan: Fix Card Leads Flow (`card_leads`) from `/c/[slug]` to `/dashboard`
+# Refined Plan: Add Profile Photo (`avatar_url`) Support to Smart Business Cards
 
 ## Overview
-Fix the issue where leads submitted from the "شارك بياناتك معي" form on `/c/[slug]` do not appear in `/dashboard` by routing lead insertion through a secure server action (`app/actions/leads.ts`) using `supabaseAdmin` and ensuring robust querying in `/dashboard`.
+Add robust support for profile photos (`avatar_url`) across card activation (`/activate/[code]`), the smart business card view (`/c/[slug]`), and the unified customer dashboard (`/dashboard`), supporting both direct image URLs and image file uploads (converted to Data URL / Base64 on the client side).
 
 ## Detailed Steps & File Plan
-1. **Create Server Action (`app/actions/leads.ts`):**
-   - Create `'use server'` action `submitCardLeadAction(formData)` that validates `business_card_id`, `visitor_name`, and `visitor_phone`, and inserts into `card_leads` using `supabaseAdmin` (bypassing any client-side RLS block). Returns success/error status and surfaces exact error messages if any.
-2. **Update Client Component (`SmartBusinessCardClient.tsx`):**
-   - Call `submitCardLeadAction` instead of direct browser client `.from('card_leads').insert()`.
-3. **Verify Dashboard Query (`app/dashboard/page.tsx`):**
-   - Ensure dashboard correctly queries `card_leads` joined with `business_cards` owned by `auth.uid()`.
-4. **Validation & Build:**
-   - Run `npx tsc --noEmit` and `npm run build`.
+1. **Server Actions (`app/actions/cards.ts` & `app/actions/dashboard.ts`):**
+   - Accept `avatar_url` (string / data URL) in `activateCardAction` and `updateBusinessCardAction` and persist it to `business_cards.avatar_url`.
+2. **Client Components (`ActivateCardClient.tsx`, `UnifiedClientDashboard.tsx`, `SmartBusinessCardClient.tsx`):**
+   - Provide both a direct image URL text input and a file picker (using `FileReader` to convert uploaded image files to Base64 data URLs).
+   - Render `avatar_url` inside the circular profile slot on `/c/[slug]` (`SmartBusinessCardClient.tsx`) with an initials fallback on load error or missing image.
+3. **Verification & Build:**
+   - Run `npx tsc --noEmit` and `npx next build`.
    - Commit and push to `main`.

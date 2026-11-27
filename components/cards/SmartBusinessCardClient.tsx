@@ -15,6 +15,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedVodafone, setCopiedVodafone] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleLeadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -58,10 +59,15 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
         {/* Profile Header */}
         <div className="text-center relative">
           <div className="w-24 h-24 mx-auto rounded-full bg-slate-200 border-4 border-white shadow-md overflow-hidden flex items-center justify-center text-2xl font-bold text-slate-700 mb-3">
-            {card.avatar_url ? (
-              <img src={card.avatar_url} alt={card.full_name} className="w-full h-full object-cover" />
+            {card.avatar_url && !imageError ? (
+              <img
+                src={card.avatar_url}
+                alt={card.full_name}
+                onError={() => setImageError(true)}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              card.full_name.charAt(0)
+              <span>{card.full_name ? card.full_name.charAt(0) : 'K'}</span>
             )}
           </div>
           <h1 className="text-xl font-black text-slate-900 mb-1">{card.full_name}</h1>

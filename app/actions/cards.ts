@@ -52,6 +52,7 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
     const phone = formData.get('phone')?.toString()?.trim() || null;
     const whatsapp = formData.get('whatsapp')?.toString()?.trim() || null;
     const email = formData.get('email')?.toString()?.trim() || null;
+    const avatarUrl = formData.get('avatar_url')?.toString()?.trim() || null;
 
     if (!code) {
       return { success: false, error: 'كود الكارت غير صالح' };
@@ -107,24 +108,29 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
 
       if (existingBc?.slug) {
         slug = existingBc.slug;
+        const updatePayload: any = {
+          full_name: fullName,
+          job_title: jobTitle,
+          company,
+          phone,
+          whatsapp,
+          email,
+          is_active: true,
+        };
+        if (avatarUrl) {
+          updatePayload.avatar_url = avatarUrl;
+        }
+
         const { error: bcUpdateErr } = await supabaseAdmin
           .from('business_cards')
-          .update({
-            full_name: fullName,
-            job_title: jobTitle,
-            company,
-            phone,
-            whatsapp,
-            email,
-            is_active: true,
-          })
+          .update(updatePayload)
           .eq('card_id', card.id);
 
         if (bcUpdateErr) {
           console.error('Business card update error:', bcUpdateErr);
         }
       } else {
-        const { error: bcErr } = await supabaseAdmin.from('business_cards').insert({
+        const insertPayload: any = {
           card_id: card.id,
           slug,
           full_name: fullName,
@@ -134,7 +140,12 @@ export async function activateCardAction(formData: FormData): Promise<{ success:
           whatsapp,
           email,
           is_active: true,
-        });
+        };
+        if (avatarUrl) {
+          insertPayload.avatar_url = avatarUrl;
+        }
+
+        const { error: bcErr } = await supabaseAdmin.from('business_cards').insert(insertPayload);
 
         if (bcErr) {
           console.error('Business card insert error:', bcErr);

@@ -57,22 +57,29 @@ export async function updateBusinessCardAction(cardId: string, formData: FormDat
     const vodafoneCash = formData.get('vodafone_cash')?.toString() || '';
     const instapayUrl = formData.get('instapay_url')?.toString() || '';
     const themeColor = formData.get('theme_color')?.toString() || '#0F172A';
+    const avatarUrl = formData.get('avatar_url')?.toString()?.trim() || null;
+
+    const updatePayload: any = {
+      full_name: fullName.trim(),
+      job_title: jobTitle.trim(),
+      company: company.trim(),
+      bio: bio.trim(),
+      phone: phone.trim(),
+      whatsapp: whatsapp.trim(),
+      email: email.trim(),
+      website: website.trim(),
+      vodafone_cash: vodafoneCash.trim(),
+      instapay_url: instapayUrl.trim(),
+      theme_color: themeColor,
+    };
+
+    if (avatarUrl !== null) {
+      updatePayload.avatar_url = avatarUrl;
+    }
 
     const { error } = await supabaseAdmin
       .from('business_cards')
-      .update({
-        full_name: fullName.trim(),
-        job_title: jobTitle.trim(),
-        company: company.trim(),
-        bio: bio.trim(),
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim(),
-        email: email.trim(),
-        website: website.trim(),
-        vodafone_cash: vodafoneCash.trim(),
-        instapay_url: instapayUrl.trim(),
-        theme_color: themeColor,
-      })
+      .update(updatePayload)
       .eq('card_id', cardId);
 
     if (error) throw error;
