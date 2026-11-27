@@ -1,16 +1,15 @@
-# Plan: Audit & Fix Card Activation `permission denied for table cards` Error
+# Plan: Fix Card Leads Flow (`card_leads`) from `/c/[slug]` to `/dashboard`
 
 ## Overview
-Investigate and resolve the `permission denied for table cards` error occurring during card activation on `/activate/[code]`.
+Fix the issue where leads submitted from the "شارك بياناتك معي" form on `/c/[slug]` do not appear in `/dashboard` by routing lead insertion through a secure server action (`app/actions/leads.ts`) using `supabaseAdmin` and ensuring robust querying in `/dashboard`.
 
-## Detailed Audit & Plan
-1. **Codebase Audit:**
-   - Search all files for `.from('cards')` and `.from('business_cards')` to ensure no client-side (`'use client'`) component attempts direct table mutations.
-2. **Server Action Refinement (`app/actions/cards.ts`):**
-   - Ensure `supabaseAdmin` is instantiated cleanly using `process.env.SUPABASE_SERVICE_ROLE_KEY`. If `SUPABASE_SERVICE_ROLE_KEY` is missing or empty, return an explicit diagnostic error (`مفتاح الخدمة SUPABASE_SERVICE_ROLE_KEY غير مضبوط في البيئة`).
-   - Log and surface exact Supabase error properties (`error.message`, `error.code`, `error.details`) rather than generic messages.
-3. **Database / RLS / Trigger Inspection:**
-   - Review migration `supabase/migrations/20261127_smart_cards_platform.sql` to verify RLS policies and foreign key constraints on `cards` and `business_cards`.
-4. **Validation:**
+## Detailed Steps & File Plan
+1. **Create Server Action (`app/actions/leads.ts`):**
+   - Create `'use server'` action `submitCardLeadAction(formData)` that validates `business_card_id`, `visitor_name`, and `visitor_phone`, and inserts into `card_leads` using `supabaseAdmin` (bypassing any client-side RLS block). Returns success/error status and surfaces exact error messages if any.
+2. **Update Client Component (`SmartBusinessCardClient.tsx`):**
+   - Call `submitCardLeadAction` instead of direct browser client `.from('card_leads').insert()`.
+3. **Verify Dashboard Query (`app/dashboard/page.tsx`):**
+   - Ensure dashboard correctly queries `card_leads` joined with `business_cards` owned by `auth.uid()`.
+4. **Validation & Build:**
    - Run `npx tsc --noEmit` and `npm run build`.
    - Commit and push to `main`.

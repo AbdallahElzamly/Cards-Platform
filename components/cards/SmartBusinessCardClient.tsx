@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from 'react';
 import { BusinessCard } from '@/types/smart-cards';
-import { createBrowserClient } from '@supabase/ssr';
+import { submitCardLeadAction } from '@/app/actions/leads';
 
 interface SmartBusinessCardClientProps {
   card: BusinessCard;
@@ -13,27 +13,26 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
   const [visitorPhone, setVisitorPhone] = useState('');
   const [visitorNote, setVisitorNote] = useState('');
   const [leadSuccess, setLeadSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedVodafone, setCopiedVodafone] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
-
-  const handleLeadSubmit = (e: React.FormEvent) => {
+  const handleLeadSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!visitorName.trim() || !visitorPhone.trim()) return;
 
-    startTransition(async () => {
-      const { error } = await supabase.from('card_leads').insert({
-        business_card_id: card.id,
-        visitor_name: visitorName,
-        visitor_phone: visitorPhone,
-        visitor_note: visitorNote,
-      });
+    const formData = new FormData(e.currentTarget);
+    formData.set('business_card_id', card.id);
+    formData.set('visitor_name', visitorName);
+    formData.set('visitor_phone', visitorPhone);
+    formData.set('visitor_note', visitorNote);
 
-      if (!error) {
+    startTransition(async () => {
+      const res = await submitCardLeadAction(formData);
+      if (!res.success) {
+        setErrorMsg(res.error || 'فشل إرسال البيانات');
+      } else {
         setLeadSuccess(true);
         setVisitorName('');
         setVisitorPhone('');
@@ -150,6 +149,13 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
         {/* Lead Capture Form: شارك بياناتك معي */}
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
           <h3 className="text-xs font-bold text-slate-800 mb-2">شارك بياناتك معي 📇</h3>
+          
+          {errorMsg && (
+            <div className="p-2 mb-2 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-[11px] font-semibold text-center">
+              {errorMsg}
+            </div>
+          )}
+
           {leadSuccess ? (
             <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold text-center">
               تم إرسال بياناتك بنجاح! شكراً لك.
@@ -158,6 +164,7 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
             <form onSubmit={handleLeadSubmit} className="flex flex-col gap-2.5">
               <input
                 type="text"
+                name="visitor_name"
                 required
                 value={visitorName}
                 onChange={(e) => setVisitorName(e.target.value)}
@@ -166,12 +173,21 @@ export default function SmartBusinessCardClient({ card }: SmartBusinessCardClien
               />
               <input
                 type="tel"
+                name="visitor_phone"
                 required
                 dir="ltr"
                 value={visitorPhone}
                 onChange={(e) => setVisitorPhone(e.target.value)}
                 placeholder="رقم الموبايل"
                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none text-right font-mono"
+              />
+              <input
+                type="text"
+                name="visitor_note"
+                value={visitorNote}
+                onChange={(e) => setVisitorNote(e.target.value)}
+                placeholder="ملاحظة أو طلب (اختياري)"
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none"
               />
               <button
                 type="submit"
