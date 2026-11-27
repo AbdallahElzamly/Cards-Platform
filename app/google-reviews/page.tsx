@@ -11,87 +11,130 @@ import {
 } from '@/components/ui/Icons';
 
 export const metadata: Metadata = {
-  title: 'كارت تقييمات جوجل الذكي من KUWI — لا تحويلة، لا بحث، 5 نجوم في 3 ثوانٍ',
+  title: 'كارت تقييمات جوجل الذكي من KUWI — منافسك بياخد زباينك بسبب تقييماته؟',
   description:
-    'كارت وستاند تقييمات خرائط جوجل بتقنية NFC و QR من KUWI. مسار مباشر من تجربة ممتازة إلى تقييم 5 نجوم على Google Maps بدون تطبيقات وبضمان 365 يوماً.',
+    'كارت KUWI الذكي لتقييمات خرائط جوجل بتقنية NFC و QR على نفس الكارت. حوّل عميلك المبسوط لتقييم 5 نجوم حقيقي في 3 ثواني قبل ما يخرج من الباب، بدون اشتراك سنوي وبضمان 365 يوم.',
 };
 
 export default function GoogleReviewsLandingPage() {
-  const orderStarter = getKuwiOrderHref(
-    'أهلاً فريق KUWI، أريد طلب باقة كارت تقييمات جوجل الذكي (كارت الكاشير — 350 ج.م).',
-    'طلب كارت تقييمات جوجل — كارت الكاشير'
+  const orderCashier = getKuwiOrderHref(
+    'أهلاً فريق KUWI، عايز أطلب باقة الكاشير لتقييمات جوجل (كارت KUWI الذكي + هدايا التأسيس والضمان — 300 ج.م).',
+    'طلب باقة الكاشير — كارت تقييمات جوجل'
   );
-  const orderGrowth = getKuwiOrderHref(
-    'أهلاً فريق KUWI، أريد طلب باقة النمو لتقييمات جوجل (3 كروت + ستاند كاونتر — 890 ج.م).',
-    'طلب كارت تقييمات جوجل — باقة النمو'
+  const orderTeam = getKuwiOrderHref(
+    'أهلاً فريق KUWI، عايز أطلب باقة الفريق لتقييمات جوجل (3 كروت KUWI الذكية + فحص جوجل ماب وسكريبت الموظفين وقوالب الردود — 890 ج.م).',
+    'طلب باقة الفريق — كروت تقييمات جوجل'
   );
   const orderBranches = getKuwiOrderHref(
-    'أهلاً فريق KUWI، أريد طلب باقة الفروع لتقييمات جوجل (10 كروت + 3 ستاندات — 2,400 ج.م).',
-    'طلب كارت تقييمات جوجل — باقة الفروع'
+    'أهلاً فريق KUWI، عايز أطلب باقة الفروع لتقييمات جوجل (10 كروت KUWI الذكية + كارت بيزنس هدية وتراكينج لكل فرع — 2,500 ج.م).',
+    'طلب باقة الفروع — كروت تقييمات جوجل'
   );
+
+  const marketPains = [
+    {
+      tag: 'مشكلة كل صاحب مكان',
+      title: 'الزبون بيقرأ آخر تقييمات قبل ما يتحركلك',
+      desc: 'العميل اللي بيدوّر على جوجل ماب ما بيبصّش على جودة شغلك في الحقيقة، بيبص على آخر 5 تقييمات اتكتبوا الشهر ده. لو منافسك عنده تقييمات أحدث منك، الزبون بيروحله هو تلقائي.',
+    },
+    {
+      tag: 'آيفون • أندرويد • موبايلات قديمة',
+      title: 'مفيش زبون هيقف يدوّر على اسمك أو يحمّل تطبيق',
+      desc: 'كارت KUWI بيجمع تقنية NFC للآيفون والأندرويد مع رمز QR مطبوع على الضهر لأي موبايل قديم. لمسة واحدة عند الكاشير وبتفتح نافذة الـ 5 نجوم في 3 ثواني.',
+    },
+    {
+      tag: 'بدون مخاطرة على صفحتك',
+      title: 'أمان 100% ضد مخالفات سياسة جوجل',
+      desc: 'لا فلترة مخالفة ولا حوافز تغلق حسابك على جوجل ماب. بتاخد تقييمات حقيقية من زباينك في المكان نفسه، ومعاها دليل المسموح والممنوع عشان تقييماتك ما تتمسحش أبداً.',
+    },
+  ];
+
+  const planSteps = [
+    {
+      num: '01',
+      title: 'تبعتلنا رابط مكانك على جوجل ماب',
+      desc: 'فريق KUWI بيبرمج الكارت ويربطه مباشرة بصفحة التقييمات الخاصة بنشاطك قبل الشحن.',
+    },
+    {
+      num: '02',
+      title: 'تستلم كارتك جاهز خلال 48 ساعة',
+      desc: 'كارت شيك وعالي التباين يوصلك لحد باب محلك أو مطعمك ومختبر وجاهز يشتغل في نفس الدقيقة.',
+    },
+    {
+      num: '03',
+      title: 'لمسة عند الكاشير ← تقييم في 3 ثواني',
+      desc: 'العميل المبسوط بيقرّب موبايله وهو مبتسم، يضغط الـ 5 نجوم، واسمك يطلع أعلى في جوجل ماب يوم بعد يوم.',
+    },
+  ];
 
   const slabs = [
     {
-      name: 'كارت الكاشير',
-      badge: 'بداية سريعة',
-      price: '350',
-      unit: 'ج.م لمرة واحدة',
+      name: 'باقة الكاشير',
+      badge: 'بداية سريعة للأفراد والمحلات',
+      price: '300',
+      unit: 'ج.م دفعة واحدة للأبد',
       featured: false,
-      href: orderStarter,
+      href: orderCashier,
       items: [
-        '1 كارت KUWI NFC + QR مقاوم للماء والخدش',
-        'برمجة مسبقة على رابط تقييم خرائط جوجل لنشاطك',
-        'تعديل الرابط مستقبلاً بدون إعادة طباعة الكارت',
-        'ضمان استرجاع كامل لمدة 365 يوماً',
+        '1 كارت KUWI الذكي (NFC + QR مطبوع على الضهر) مقاوم للماء والخدش',
+        'هدية التأسيس: برمجة وربط الكارت بصفحتك على جوجل ماب قبل الشحن',
+        'هدية الأمان: ورقة «المسموح والممنوع في سياسة جوجل» عشان تقييماتك متتمسحش',
+        'هدية المرونة: تعديل رابط فرعك أونلاين في أي وقت بدون إعادة طباعة',
+        'ضمان KUWI الذهبي: 365 يوم استبدال أو استرداد كامل للمبلغ',
       ],
     },
     {
-      name: 'باقة النمو (الأكثر مبيعاً)',
-      badge: 'أعلى عائد ROI • وفر 25%',
+      name: 'باقة الفريق',
+      badge: 'الأكثر اختياراً • أعلى قيمة',
       price: '890',
-      unit: 'ج.م بدلاً من 1,200 ج.م',
+      unit: 'ج.م دفعة واحدة للأبد',
       featured: true,
-      href: orderGrowth,
+      href: orderTeam,
       items: [
-        '3 كروت NFC للكاشير والويتر + 1 ستاند كاونتر فاخر',
-        'كارت في اليد + ستاند على الكاشير لمضاعفة التقييمات 4×',
-        'برمجة كاملة باسم فرعك + دليل سكريبت الكاشير (هدية)',
-        'تغيير رابط الفرع مجاناً في أي وقت بدون إعادة طباعة',
-        'ضمان استرجاع 365 يوماً بدون أسئلة',
+        '3 كروت KUWI الذكية (كارت للكاشير + كارتين للويتر أو الاستقبال عشان التقييم يتم في لحظتها)',
+        'هدية فحص Google Business Profile: مراجعة سريعة لصفحتك وتوصيات تطلعك في أول 3 نتائج',
+        'هدية سكريبت الـ 10 ثواني للموظفين: إزاي يطلب التقييم بشياكة ومن غير إحراج',
+        'هدية قوالب الردود الجاهزة بالمصري: ردود جاهزة على التقييمات والشكاوى توفر وقتك كل يوم',
+        'هدية ورقة سياسة جوجل + تعديل الرابط مدى الحياة بدون اشتراك',
+        'ضمان KUWI الذهبي: 365 يوم استبدال أو استرداد كامل للمبلغ',
       ],
     },
     {
-      name: 'باقة الفروع والسلاسل',
+      name: 'باقة الفروع',
       badge: 'للمطاعم والعيادات متعددة الفروع',
-      price: '2,400',
-      unit: 'ج.م بدلاً من 3,500 ج.م',
+      price: '2,500',
+      unit: 'ج.م دفعة واحدة للأبد',
       featured: false,
       href: orderBranches,
       items: [
-        '10 كروت NFC مخصصة + 3 ستاندات كاونتر بشعارك',
-        'ربط منفصل لكل فرع مع تتبع عدد المسحات الفعلي',
-        'تجهيز وبرمجة كاملة قبل الشحن خلال 48 ساعة',
-        'أولوية دعم فني واستبدال فوري لمدة سنة كاملة',
+        '10 كروت KUWI الذكية متوزعة على كل فروعك وكاشيراتك',
+        'هدية التتبع لكل فرع: ربط منفصل لكل فرع عشان تعرف عدد المسحات الفعلي في كل مكان',
+        'هدية كارت بيزنس ذكي لصاحب البراند بأرقامك وحساباتك مجاناً',
+        'شاملة كل هدايا باقة الفريق (فحص الفروع + سكريبت الموظفين + قوالب الرد + ورقة السياسة)',
+        'أولوية دعم واتساب وضمان استبدال فوري لمدة 365 يوم',
       ],
     },
   ];
 
   const faqs = [
     {
-      q: 'هل العميل يحتاج يحمّل تطبيق أو يبحث عن اسم المحل؟',
-      a: 'لا نهائياً. لا بحث بالاسم، لا خطوات معقدة، ولا تطبيقات. لمسة واحدة بالموبايل (iPhone أو Android) أو مسحة للـ QR تفتح نافذة الـ 5 نجوم على خرائط جوجل في 3 ثوانٍ.',
+      q: 'هل العميل محتاج يحمّل تطبيق أو يعمل بحث عن المحل؟',
+      a: 'لا خالص. مجرد ما يقرّب موبايله من الكارت أو يمسح الـ QR اللي على الضهر، صفحة التقييم على جوجل ماب بتفتح في ثانية من غير أي تطبيق أو خطوات زيادة.',
     },
     {
-      q: 'هل أحتاج أبرمج الكارت بنفسي بعد الاستلام؟',
-      a: 'أبداً (Done-For-You 100%). ترسل لنا رابط نشاطك على خرائط جوجل، وفريق KUWI يطبع ويبرمج الكارت ويختبره قبل الشحن ليشتغل في نفس اللحظة التي تستلمه فيها.',
+      q: 'طيب لو عميل معاه موبايل قديم ومفيهوش NFC؟',
+      a: 'مفيش أي مشكلة — كل كارت من KUWI مطبوع على ضهره رمز QR احتياطي شغال بكاميرا أي موبايل قديم أو حديث، يعني ولا عميل واحد هيفوتك.',
     },
     {
-      q: 'ليه التقييمات على جوجل بتجيب مبيعات أكتر من الإعلانات؟',
-      a: 'لأن العميل الذي يبحث على Google Maps جاهز للشراء الآن! أول 3 نتائج بأعلى تقييم تحصل على أكثر من 70% من المكالمات والزيارات مجاناً كل شهر بدون دفع جنيه واحد لإعلانات ممولة.',
+      q: 'هل في اشتراك شهري أو سنوي بعد ما أشتري الكارت؟',
+      a: 'أبداً. بتدفع تمن الكارت مرة واحدة بس، والربط والصفحة وتعديل اللينك مستقبلاً مجاني مدى الحياة من غير أي مصاريف مخفية.',
     },
     {
-      q: 'إيه ضمان الـ 365 يوم بالظبط؟',
-      a: 'جرّب الكارت على الكاشير سنة كاملة؛ لو لم تلاحظ زيادة حقيقية في تقييمات عملائك على خرائط جوجل، استرد كامل المبلغ بدون أي تعقيد.',
+      q: 'إزاي بتضمنوا إن التقييمات متتمسحش أو تخالف سياسة جوجل؟',
+      a: 'بنبعتلك مع الكارت ورقة «المسموح والممنوع في جوجل» عشان التقييمات تطلع 100% طبيعية وقانونية من زباينك جوه المكان، وده بيخلي تقييماتك ثابتة وبتزود ترتيبك بأمان.',
+    },
+    {
+      q: 'يعني إيه ضمان 365 يوم؟',
+      a: 'معاك سنة كاملة تجربة حقيقية على الكاشير؛ لو الكارت وقف أو ما شوفتش زيادة حقيقية في تقييماتك، تستبدله أو تسترد فلوسك كاملة من غير لف ودوران.',
     },
   ];
 
@@ -124,25 +167,26 @@ export default function GoogleReviewsLandingPage() {
       </header>
 
       <main>
-        {/* Hero: Hormozi Hook + Copyhackers Direct-Response + Designer Mockup */}
+        {/* Hero: Joanna Wiebe / Alex Cattoni Egyptian VoC Pain-First Hook */}
         <section className="pt-12 pb-16 sm:pt-16 sm:pb-24 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6 flex flex-col gap-5 text-right">
               <div className="inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#C8FF2E] text-xs font-semibold">
                 <StarIcon size={14} />
-                <span>بدون بحث • بدون روابط طويلة • بدون اشتراك شهري</span>
+                <span>بدون اشتراك سنوي • بدون تطبيقات • NFC + QR على نفس الكارت</span>
               </div>
 
               <h1
                 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight text-white"
                 style={{ textWrap: 'balance' }}
               >
-                لا تترك عميلك الراضي يغادر بصمت — حوّله إلى{' '}
-                <span className="text-[#C8FF2E]">تقييم 5 نجوم على جوجل</span> في 3 ثوانٍ
+                منافسك اللي أقل منك في الشغل بياخد زباينك من جوجل ماب…{' '}
+                <span className="text-[#C8FF2E]">لمجرد إن تقييماته أكتر وأحدث!</span>
               </h1>
 
               <p className="text-base text-neutral-300 leading-relaxed">
-                كارت في يد الكاشير + ستاند على الكاونتر. مسار مباشر بدون أي تعقيد: قرّب الموبايل ← تفتح نافذة تقييم نشاطك على Google Maps فوراً ← يضغط العميل 5 نجوم وهو ما زال مبتسماً أمامك.
+                الزبون المبسوط بيمشي من عندك وينسى يقيّمك، إنما الزبون المتضايق بيدخل يكتب نجمة واحدة في ساعتها! بكارت{' '}
+                <strong className="text-white">KUWI الذكي</strong>، الكاشير بيقرّب الكارت من موبايل العميل المبسوط وهو لسه مبتسم — في 3 ثواني بالظبط بيفتحله صفحة الـ 5 نجوم على جوجل ماب قبل ما يخرج من الباب.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -150,29 +194,29 @@ export default function GoogleReviewsLandingPage() {
                   href="#pricing"
                   className="min-h-[52px] px-7 py-3.5 bg-[#C8FF2E] hover:brightness-95 active:scale-[0.98] text-[#0B0B0F] font-bold text-base rounded-2xl inline-flex items-center justify-center gap-2 transition"
                 >
-                  <span>شاهد الباقات واطلب الآن</span>
+                  <span>شوف الباقات والهدايا</span>
                   <ArrowUpLeftIcon size={18} />
                 </a>
                 <a
-                  href={orderGrowth}
+                  href={orderTeam}
                   className="min-h-[52px] px-6 py-3.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold text-sm rounded-2xl inline-flex items-center justify-center gap-2 transition"
                 >
-                  <span>احجز باقة النمو مباشرة</span>
+                  <span>اطلب باقة الفريق على واتساب</span>
                 </a>
               </div>
 
               <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-400 pt-1">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckIcon size={14} className="text-[#C8FF2E]" />
-                  iPhone و Android فوراً
+                  يشتغل على آيفون وأندرويد فوراً
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckIcon size={14} className="text-[#C8FF2E]" />
-                  مبرمج وجاهز من KUWI
+                  تأسيس وبرمجة كاملة من KUWI
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckIcon size={14} className="text-[#C8FF2E]" />
-                  ضمان استرجاع 365 يوماً
+                  ضمان استبدال واسترداد 365 يوم
                 </span>
               </div>
             </div>
@@ -187,9 +231,9 @@ export default function GoogleReviewsLandingPage() {
                 />
                 <div className="absolute bottom-5 right-5 left-5 bg-[#0B0B0F]/85 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs font-bold text-[#C8FF2E]">كارت في اليد + ستاند على الكاونتر</div>
+                    <div className="text-xs font-bold text-[#C8FF2E]">كارت KUWI الذكي (NFC + QR على الضهر)</div>
                     <div className="text-[11px] text-neutral-300">
-                      شريحة NFC أصلية + رمز QR احتياطي • يفتح صفحة التقييم مباشرة في 3 ثوانٍ
+                      تصميم عالي التباين يشد عين العميل • بيفتح نافذة التقييم مباشرة في 3 ثواني
                     </div>
                   </div>
                   <QrCodeIcon size={20} className="text-[#C8FF2E] shrink-0" />
@@ -199,46 +243,50 @@ export default function GoogleReviewsLandingPage() {
           </div>
         </section>
 
-        {/* Hormozi ROI Math & Proof Strip */}
-        <section className="py-12 px-4 sm:px-6 border-t border-white/10 bg-[#12121A]">
+        {/* Market Pain & VoC Proof Section */}
+        <section className="py-14 px-4 sm:px-6 border-t border-white/10 bg-[#12121A]">
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-[#181824] border border-white/10 rounded-3xl p-6">
-              <div className="text-2xl font-bold font-mono text-[#C8FF2E] mb-1">3 ثوانٍ فقط</div>
-              <h2 className="text-base font-bold text-white mb-1.5">إزالة 100% من العوائق</h2>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                العميل لا يكتب اسم محلك ولا يفتح تطبيقاً. لمسة واحدة = تقييم مكتمل قبل أن يغادر الكاشير.
-              </p>
-            </div>
-            <div className="bg-[#181824] border border-white/10 rounded-3xl p-6">
-              <div className="text-2xl font-bold font-mono text-[#C8FF2E] mb-1">عميلان فقط</div>
-              <h2 className="text-base font-bold text-white mb-1.5">يغطيان ثمن الكارت للأبد</h2>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                لو تقييماتك الجديدة على Google Maps جلبت لك عميلين فقط هذا الشهر، تكون قد استرددت استثمارك أضعافاً مضاعفة بدون أي اشتراك شهري.
-              </p>
-            </div>
-            <div className="bg-[#181824] border border-white/10 rounded-3xl p-6">
-              <div className="text-2xl font-bold font-mono text-[#A78BFA] mb-1">0% مخاطرة</div>
-              <h2 className="text-base font-bold text-white mb-1.5">ضمان KUWI لمدة 365 يوماً</h2>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                نحن واثقون من النتيجة لدرجة أننا نتحمل المخاطرة بالكامل لمدة سنة — إن لم تزد تقييماتك، تسترد أموالك كاملة.
-              </p>
+            {marketPains.map((pain) => (
+              <div key={pain.title} className="bg-[#181824] border border-white/10 rounded-3xl p-6">
+                <div className="text-[11px] font-bold text-[#C8FF2E] mb-2">{pain.tag}</div>
+                <h2 className="text-base font-bold text-white mb-2">{pain.title}</h2>
+                <p className="text-xs text-neutral-300 leading-relaxed">{pain.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* StoryBrand 3-Step Plan */}
+        <section className="py-14 px-4 sm:px-6 border-t border-white/10">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl font-bold text-white text-center mb-8">
+              إزاي بتشتغل معانا في <span className="text-[#C8FF2E]">3 خطوات بسيطة؟</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {planSteps.map((s) => (
+                <div key={s.num} className="bg-[#14141D] border border-white/10 rounded-3xl p-6">
+                  <div className="text-2xl font-bold font-mono text-[#C8FF2E] mb-2">{s.num}</div>
+                  <h3 className="text-base font-bold text-white mb-1.5">{s.title}</h3>
+                  <p className="text-xs text-neutral-300 leading-relaxed">{s.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Hormozi Money Models: 3 Pricing Slabs */}
-        <section id="pricing" className="py-20 px-4 sm:px-6 border-t border-white/10">
+        {/* Hormozi Pure Value Stacking (Zero Discounts, Zero Acrylic Stands) */}
+        <section id="pricing" className="py-20 px-4 sm:px-6 border-t border-white/10 bg-[#12121A]">
           <div className="max-w-6xl mx-auto">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#7C3AED]/25 text-[#C8FF2E] text-xs font-bold mb-3">
                 <SparklesIcon size={14} />
-                <span>باقات استثمار لمرة واحدة — بدون اشتراك شهري</span>
+                <span>باقات مكدّسة بالهدايا التشغيلية — دفعة واحدة للأبد</span>
               </span>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">
-                اختر الباقة المناسبة لحجم نشاطك
+                اختار الباقة اللي تكبّر تقييمات مكانك أسرع
               </h2>
               <p className="text-sm text-neutral-400">
-                جميع الباقات تصل إليك مبرمجة وجاهزة للتشغيل الفوري مع ضمان 365 يوماً
+                كل باقة بتوصلك مبرمجة وجاهزة للشغل مع كل هدايا التأسيس والتشغيل — وعميلين بس من جوجل ماب يغطوا تمنها طول العمر
               </p>
             </div>
 
@@ -295,7 +343,7 @@ export default function GoogleReviewsLandingPage() {
 
             <div className="mt-8 p-5 rounded-2xl bg-[#7C3AED]/15 border border-[#7C3AED]/40 flex items-center justify-center gap-2.5 text-xs sm:text-sm text-neutral-200 text-center">
               <ShieldIcon size={18} className="text-[#C8FF2E] shrink-0" />
-              <span>ضمان KUWI الذهبي: 365 يوماً كاملة ضمان استرداد — شحن سريع لجميع المحافظات</span>
+              <span>ضمان KUWI الذهبي: 365 يوم كاملة تجربة حقيقية أو استرداد كامل — شحن سريع لجميع المحافظات</span>
             </div>
           </div>
         </section>
@@ -303,7 +351,7 @@ export default function GoogleReviewsLandingPage() {
         {/* FAQ */}
         <section className="py-16 px-4 sm:px-6 border-t border-white/10">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-white text-center mb-8">أسئلة شائعة قبل الطلب</h2>
+            <h2 className="text-2xl font-bold text-white text-center mb-8">أسئلة بتيجي في بالك قبل ما تطلب</h2>
             <div className="space-y-3">
               {faqs.map((item) => (
                 <div key={item.q} className="bg-[#15151F] border border-white/10 rounded-2xl p-5">

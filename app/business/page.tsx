@@ -10,37 +10,37 @@ import {
 } from '@/components/ui/Icons';
 
 export const metadata: Metadata = {
-  title: 'حلول وكروت الشركات والمؤسسات من KUWI — هوية واحدة وصندوق عملاء موحّد',
+  title: 'كروت الشركات وإدارة أسطول المبيعات من KUWI — احتفظ بعملاء شركتك للأبد',
   description:
-    'زوّد فريق مبيعاتك بكروت NFC ذكية مع بوابة إدارة مركزية: نقل عهدة الموظف المستقيل بضغطة زر بدون إعادة طباعة، والاحتفاظ بكل العملاء المحتملين في Excel.',
+    'بوابة واحدة لإدارة كروت موظفيك: لما موظف مبيعات يسيب الشغل تنقل عهدة الكارت لموظف جديد في 5 ثواني من غير إعادة طباعة وتحتفظ بكل عملاء المعارض في Excel.',
 };
 
 export default function BusinessLandingPage() {
   const quoteSmall = getKuwiOrderHref(
-    'أهلاً فريق KUWI، نرغب في عرض سعر لباقة الشركات (5 إلى 15 موظف).',
-    'عرض سعر شركات — باقة 5-15 موظف'
+    'أهلاً فريق KUWI، عايزين عرض تأسيس باقة الفرق الصاعدة للشركات (5 إلى 15 موظف).',
+    'طلب باقة الشركات 5-15 موظف'
   );
   const quoteMid = getKuwiOrderHref(
-    'أهلاً فريق KUWI، نرغب في عرض سعر لباقة الشركات (16 إلى 50 موظف — الأكثر طلباً).',
-    'عرض سعر شركات — باقة 16-50 موظف'
+    'أهلاً فريق KUWI، عايزين باقة فرق المبيعات للشركات (16 إلى 50 موظف + هدايا التأسيس وكروت جوجل).',
+    'طلب باقة فرق المبيعات 16-50 موظف'
   );
   const quoteEnterprise = getKuwiOrderHref(
-    'أهلاً فريق KUWI، نرغب في عرض سعر لباقة المؤسسات الكبرى (أكثر من 50 موظف).',
-    'عرض سعر مؤسسات كبرى 50+ موظف'
+    'أهلاً فريق KUWI، عايزين عرض باقة المؤسسات الكبرى (أكثر من 50 موظف).',
+    'طلب باقة المؤسسات الكبرى 50+ موظف'
   );
 
   const pillars = [
     {
-      title: 'هوية واحدة موحّدة ومقفلة على كل كارت',
-      desc: 'شعار شركتك وألوانك موحّدة على جميع كروت الموظفين مع صلاحية مركزية للـ HR للتحكم فيما يظهر وما يُخفى على كل بطاقة.',
+      title: 'لما موظف يمشي… الكارت والعملاء بيفضلوا للشركة',
+      desc: 'من لوحة تحكم الـ HR، بضغطة زر بتنقل عهدة الكارت المطبوع باسم الموظف الجديد في 5 ثواني — صفر إعادة طباعة وصفر هدر لفلوس الشركة.',
     },
     {
-      title: 'احتفظ بكل العملاء حتى لو غادر الموظف',
-      desc: 'استقال مندوب مبيعات؟ بضغطة زر واحدة انقل عهدة الكارت للموظف الجديد — نفس الكارت المطبوع يستمر بالعمل، وبيانات العملاء تبقى ملكاً للشركة.',
+      title: 'أرقام كل عملاء المعارض والاجتماعات في ملف Excel واحد',
+      desc: 'بدل ما المندوبين ياخدوا كروت ورقية وتضيع منهم أو ينسوا يتابعوا، كل عميل بيتواصل مع أي موظف بيتسجل لحظياً جوه بوابة شركتك وجاهز للتصدير للـ CRM.',
     },
     {
-      title: 'كل عميل محتمل (Lead) في صندوق واحد + Excel',
-      desc: 'لا تضيع بطاقات المعارض والاجتماعات بعد اليوم؛ كل عميل يتواصل مع أي موظف يُحفظ تلقائياً في بوابة شركتك مع تصدير فوري لـ Excel CRM.',
+      title: 'هوية واحدة محترمة ومقفولة على كل الفريق',
+      desc: 'شعار شركتك وألوانها موحدة على كل الكروت، وتأسيس بيانات كل الموظفين بيتم بالكامل من فريق KUWI قبل التسليم.',
     },
   ];
 
@@ -48,41 +48,42 @@ export default function BusinessLandingPage() {
     {
       name: 'باقة الفرق الصاعدة',
       range: '5 – 15 موظف',
-      badge: 'للشركات الناشئة والمكاتب',
+      badge: 'للشركات النامية والمكاتب',
       featured: false,
       href: quoteSmall,
       items: [
-        'طباعة وبرمجة 5 إلى 15 كارت NFC بشعار شركتك',
-        'بوابة إدارة مستقلة للشركة (/org/your-company)',
-        'نقل عهدة الموظفين بضغطة زر بدون إعادة طباعة',
-        'تصدير جميع Leads الفريق إلى Excel CSV',
+        '5 إلى 15 كارت KUWI الذكي (NFC + QR) مطبوعين بشعار وهوية شركتك',
+        'هدية بوابة الشركة المستقلة (/org/company-name) لإدارة الفريق والعملاء',
+        'هدية التأسيس: رفع وتجهيز بيانات موظفيك بالكامل قبل التسليم',
+        'ميزة نقل العهدة بضغطة زر + تصدير Leads الفريق إلى Excel',
+        'ضمان KUWI الذهبي: 365 يوم استبدال أو استرداد كامل',
       ],
     },
     {
-      name: 'باقة فرق المبيعات (الأكثر طلباً)',
+      name: 'باقة فرق المبيعات',
       range: '16 – 50 موظف',
-      badge: 'خصم كميات حتى 30%',
+      badge: 'الأكثر اختياراً • أعلى عائد للشركات',
       featured: true,
       href: quoteMid,
       items: [
-        'طباعة وبرمجة 16 إلى 50 كارت NFC بشعار وهوية شركتك',
-        'تأسيس كامل للبيانات من فريق KUWI قبل التسليم',
-        'قياس أداء كل موظف (عدد المسحات والعملاء المكتسبين)',
-        '3 كروت تقييمات جوجل مجانية لفروع شركتك (هدية)',
-        'ضمان استبدال واسترجاع لمدة 365 يوماً',
+        '16 إلى 50 كارت KUWI الذكي (NFC + QR) بهوية شركتك الكاملة',
+        'هدية التأسيس الشامل: تجهيز كل بروفايلات الفريق وتدريب مسؤول الـ HR',
+        'هدية 3 كروت تقييمات جوجل الذكية لفروع ومقر شركتك مجاناً',
+        'هدية لوحة قياس أداء المبيعات: تابع عدد المسحات والعملاء لكل موظف',
+        'نقل العهدة الفوري بدون إعادة طباعة + ضمان استبدال 365 يوم',
       ],
     },
     {
       name: 'باقة المؤسسات الكبرى',
       range: '50+ موظف',
-      badge: 'تخصيص كامل للشركات الكبرى',
+      badge: 'حلول مخصصة للشركات والهيئات',
       featured: false,
       href: quoteEnterprise,
       items: [
-        'تسعير خاص للكميات الكبيرة وتصاميم مخصصة لكل قسم',
-        'مدير حساب مخصص لتسليم وتدريب فريق الموارد البشرية',
-        'كروت احتياطية فورية للتعيينات الجديدة',
-        'أولوية شحن ودعم فني طوال العام',
+        'تصميم خاص لكل قسم وإدارة مع صلاحيات تحكم للـ HR',
+        'هدية كروت احتياطية إضافية جاهزة للتعيينات الجديدة فوراً',
+        'هدية 5 كروت تقييمات جوجل الذكية لفروع ومراكز الخدمة',
+        'مدير حساب مخصص + أولوية شحن ودعم فني طوال السنة',
       ],
     },
   ];
@@ -107,7 +108,7 @@ export default function BusinessLandingPage() {
             href="#slabs"
             className="min-h-[40px] px-4 py-2 bg-[#C8FF2E] hover:brightness-95 text-[#0B0B0F] text-xs font-bold rounded-xl inline-flex items-center gap-1.5"
           >
-            <span>اطلب عرض سعر لشركتك</span>
+            <span>اختر باقة شركتك</span>
             <ArrowUpLeftIcon size={14} />
           </a>
         </nav>
@@ -122,18 +123,18 @@ export default function BusinessLandingPage() {
                 <span>هوية واحدة • صندوق عملاء واحد • صفر إعادة طباعة</span>
               </span>
               <h1 className="text-3xl sm:text-5xl font-bold leading-tight text-white" style={{ textWrap: 'balance' }}>
-                احتفظ بعملاء فريق مبيعاتك حتى عندما يغادر الموظف{' '}
-                <span className="text-[#C8FF2E]">داخل بوابة شركة واحدة</span>
+                مندوب المبيعات ساب الشغل وخد معاه عملاء الشركة…{' '}
+                <span className="text-[#C8FF2E]">وكروته اترمت؟</span>
               </h1>
               <p className="text-base text-neutral-300 leading-relaxed">
-                لا تخسر علاقات شركتك ولا تعيد طباعة الكروت مع كل تعيين أو استقالة. مع <strong className="text-white">KUWI Corporate Fleet</strong>، تدير كل كروت موظفيك من لوحة ويب واحدة، تنقل العهدة في 5 ثوانٍ، وتصدّر كل عملاء المعارض والاجتماعات إلى Excel بضغطة واحدة.
+                ما تخسرش علاقات شركتك ولا ترمي كروت مطبوعة تاني. مع <strong className="text-white">KUWI Corporate Fleet</strong>، كل موظف معاه كارت ذكي مربوط ببوابة الشركة: لو ساب الشغل بتنقل نفس الكارت للموظف الجديد في 5 ثواني، وكل عملاء المعارض والاجتماعات بيتجمعوا في ملف Excel واحد باسم شركتك.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <a
                   href="#slabs"
                   className="min-h-[52px] px-7 py-3.5 bg-[#C8FF2E] hover:brightness-95 text-[#0B0B0F] font-bold text-base rounded-2xl inline-flex items-center justify-center gap-2 transition"
                 >
-                  <span>شاهد باقات الشركات واطلب عرض سعر</span>
+                  <span>شوف باقات وهدايا الشركات</span>
                   <ArrowUpLeftIcon size={18} />
                 </a>
               </div>
@@ -165,7 +166,7 @@ export default function BusinessLandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckIcon size={14} className="text-[#C8FF2E]" />
-                  <span>تصدير موحّد لجميع العملاء المحتملين إلى Excel CSV</span>
+                  <span>تصدير موحّد لكل العملاء المحتملين إلى Excel CSV</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckIcon size={14} className="text-[#C8FF2E]" />
@@ -187,11 +188,11 @@ export default function BusinessLandingPage() {
           </div>
         </section>
 
-        {/* B2B Pricing Slabs */}
+        {/* Hormozi B2B Value Stack Slabs */}
         <section id="slabs" className="py-20 px-4 sm:px-6 border-t border-white/10">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl sm:text-4xl font-bold text-white text-center mb-10">
-              شرائح التسعير للشركات والمؤسسات
+              باقات الشركات المكدّسة بالقيمة والأمان الكامل
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {slabs.map((slab) => (
@@ -222,7 +223,7 @@ export default function BusinessLandingPage() {
                       slab.featured ? 'bg-[#C8FF2E] text-[#0B0B0F]' : 'bg-[#7C3AED] text-white'
                     }`}
                   >
-                    <span>اطلب عرض السعر الآن</span>
+                    <span>اطلب تأسيس الباقة الآن</span>
                     <ArrowUpLeftIcon size={16} />
                   </a>
                 </div>
@@ -231,7 +232,7 @@ export default function BusinessLandingPage() {
 
             <div className="mt-8 p-5 rounded-2xl bg-[#7C3AED]/15 border border-[#7C3AED]/40 flex items-center justify-center gap-2.5 text-xs sm:text-sm text-neutral-200 text-center">
               <ShieldIcon size={18} className="text-[#C8FF2E] shrink-0" />
-              <span>تجهيز كامل لبوابة شركتك + شحن الكروت المطبوعة خلال 48 ساعة • ضمان 365 يوماً</span>
+              <span>تجهيز كامل لبوابة شركتك + شحن الكروت المطبوعة خلال 48 ساعة • ضمان 365 يوم</span>
             </div>
           </div>
         </section>

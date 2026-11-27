@@ -18,3 +18,8 @@ Every architectural decision, UX/UI change, landing page, copywriting block, sec
 - **Committee 3 (Gamma — Review & Synthesis):** Audits Alpha & Beta, merges the best elements, resolves inconsistencies, and enforces design & copy standards.
 - **Committee 4 (Delta — Red-Team Audit):** Hunts ruthlessly for shortcuts, blank screens, hidden API loopholes, server abuse vectors, leaked internal controls (e.g., hiding NFC link programming from restaurant clients), or incomplete steps.
 - **Committee 5 (Epsilon — Final Judge):** Issues the binding verdict, requires 100% build/lint/test verification (`0` errors), and signs off before delivery.
+
+## Founder Commercial & Copywriting Non-Negotiables
+1. **Hardware Scope (Zero Acrylic Stands):** KUWI sells **smart NFC + QR cards ONLY** (`كروت KUWI الذكية`). NEVER advertise or promise acrylic stands (`ستاند` / `ستاندات` / `ستاند كاونتر`) until the founder explicitly launches them.
+2. **Never Discount — Pure Hormozi Value Stacking:** NEVER use percentage/crossed-out discounts (`خصم`, `وفر %`, `بدلاً من ...`). Hold crisp anchor prices and multiply perceived value using high-margin, zero/near-zero-COGS bonuses (Done-For-You setup, staff scripts, Google Policy cheat sheet, Arabic reply templates, GBP quick audit, lifetime link updates, 365-day guarantee).
+3. **100% Egyptian Colloquial VoC Pain-First Copy:** Headlines and body copy MUST use authentic Egyptian colloquial Arabic (`العامية المصرية`) grounded in real market research pain points (Joanna Wiebe / Copyhackers + Alex Cattoni + StoryBrand) — never stiff Modern Standard Arabic fluff.

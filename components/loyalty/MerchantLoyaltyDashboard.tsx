@@ -256,13 +256,13 @@ export default function MerchantLoyaltyDashboard({
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/70 flex flex-col justify-between gap-4">
               <div>
                 <span className="inline-block text-xs font-extrabold text-[#7C3AED] bg-purple-50 border border-purple-200 px-3 py-1 rounded-full mb-3">
-                  ستاندات الطاولات والمنيو الرقمي 🍽️
+                  كروت الطاولات والمنيو الرقمي 🍽️
                 </span>
                 <h2 className="text-base font-black text-slate-900 mb-2">
-                  كروت وستاندات الطاولات مبرمجة ومؤمّنة بالكامل من KUWI
+                  كروت الطاولات والكاشير مبرمجة ومؤمّنة بالكامل من KUWI
                 </h2>
                 <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  لا تحتاج لأي برمجة تقنية؛ كل ستاند NFC أو QR على طاولات مطعمك مربوط مباشرة ببرنامج الولاء الخاص بك. يمكنك من الإعدادات بالأسفل إضافة <strong>رابط المنيو الرقمي</strong> ليتم تحويل العميل إليه تلقائياً بعد تسجيل زيارته.
+                  لا تحتاج لأي برمجة تقنية؛ كل كارت NFC أو QR على طاولات مطعمك مربوط مباشرة ببرنامج الولاء الخاص بك. يمكنك من الإعدادات بالأسفل إضافة <strong>رابط المنيو الرقمي</strong> ليتم تحويل العميل إليه تلقائياً بعد تسجيل زيارته.
                 </p>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
@@ -287,14 +287,14 @@ export default function MerchantLoyaltyDashboard({
 
               <a
                 href={getKuwiOrderHref(
-                  `أهلاً فريق KUWI، نرغب في طلب ستاندات/كروت NFC إضافية لمطعم ${program.business_name}.`,
-                  `طلب ستاندات إضافية — ${program.business_name}`
+                  `أهلاً فريق KUWI، نرغب في طلب كروت NFC إضافية للطاولات والكاشير لمطعم ${program.business_name}.`,
+                  `طلب كروت إضافية — ${program.business_name}`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full min-h-[46px] py-3 px-4 bg-[#0B0B0F] hover:bg-neutral-800 text-[#C8FF2E] font-extrabold rounded-2xl transition text-xs flex items-center justify-center gap-2"
               >
-                <span>طلب ستاندات طاولات إضافية من KUWI ↗</span>
+                <span>طلب كروت طاولات إضافية من KUWI ↗</span>
               </a>
             </div>
           )}

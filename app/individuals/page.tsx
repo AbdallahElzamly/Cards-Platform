@@ -13,59 +13,61 @@ import {
 } from '@/components/ui/Icons';
 
 export const metadata: Metadata = {
-  title: 'كارت الأعمال الذكي للأفراد من KUWI — بطاقة واحدة ذكية تغنيك عن الطباعة للأبد',
+  title: 'كارت الأعمال الذكي للأفراد من KUWI — رقمك بيتحفظ في ثانية على آيفون وأندرويد',
   description:
-    'استبدل الكروت الورقية بكارت NFC ذكي من KUWI: رقمان هاتف، واتساب، لينكدإن، حفظ فوري لجهة الاتصال (.vcf)، و5 مظاهر فخمة بضمان 365 يوماً.',
+    'استبدل الكروت الورقية بكارت KUWI الذكي (NFC + QR): شغال على آيفون وأندرويد بدون اشتراك سنوي، بيحفظ رقمين وواتساب وسوشيال بضغطة واحدة مع ضمان 365 يوم.',
 };
 
 export default function IndividualsLandingPage() {
   const orderSingle = getKuwiOrderHref(
-    'أهلاً فريق KUWI، أريد طلب كارت الأعمال الذكي للأفراد (300 ج.م).',
-    'طلب كارت الأعمال الذكي للأفراد'
+    'أهلاً فريق KUWI، عايز أطلب الكارت الشخصي الذكي للأفراد + هدية التفعيل الفوري (300 ج.م).',
+    'طلب الكارت الشخصي للأفراد'
   );
   const orderVip = getKuwiOrderHref(
-    'أهلاً فريق KUWI، أريد طلب باقة VIP للأفراد (كارتين NFC بتصميم مخصص — 520 ج.م).',
-    'طلب باقة VIP للأفراد'
+    'أهلاً فريق KUWI، عايز أطلب باقة المحترفين VIP (كارتين KUWI NFC + تصميم مخصص وتجهيز البروفايل بالكامل — 600 ج.م).',
+    'طلب باقة المحترفين VIP للأفراد'
   );
 
   const perfectFor = [
-    'المهندسون والاستشاريون',
+    'المهندسين والاستشاريين',
     'الأطباء وأصحاب العيادات',
-    'مستشارو العقارات والمبيعات',
-    'رواد الأعمال والمديرون التنفيذيون',
-    'المحامون والمحاسبون',
-    'صنّاع المحتوى والمستقلون',
+    'مستشاري العقارات والمبيعات',
+    'أصحاب الشركات والمديرين',
+    'المحامين والمحاسبين',
+    'صنّاع المحتوى والمستقلين',
   ];
 
   const slabs = [
     {
-      name: 'الكارت الذكي القياسي',
-      badge: 'مثالي للبداية',
+      name: 'الكارت الشخصي الذكي',
+      badge: 'بداية قوية للأبد',
       price: '300',
-      unit: 'ج.م لمرة واحدة',
+      unit: 'ج.م دفعة واحدة للأبد',
       featured: false,
       href: orderSingle,
       items: [
-        '1 كارت KUWI NFC + QR فخم مطبوع باسمك',
-        'رقمان هاتف + واتساب + جميع روابط السوشيال ميديا',
-        'زر حفظ جهة الاتصال (.vcf) بضغطة واحدة',
-        'لوحة تحكم شخصية لتعديل بياناتك في أي وقت',
-        '5 مظاهر فخمة + وضع استرداد الكارت المفقود',
+        '1 كارت KUWI الذكي (NFC + QR على الضهر) مطبوع باسمك',
+        'صفحة ويب سريعة بزر حفظ جهة الاتصال (.vcf) تشتغل على آيفون وأندرويد',
+        'رقمين موبايل + واتساب + كل حساباتك + انستاباي وفودافون كاش',
+        'هدية التفعيل الفوري: بروفايلك شغال بالرابط وQR من قبل الشحن ما يوصلك',
+        'لوحة تعديل من موبايلك في أي وقت + وضع استرداد الكارت المفقود',
+        'ضمان KUWI الذهبي: 365 يوم استبدال أو استرداد كامل',
       ],
     },
     {
-      name: 'باقة المحترفين VIP (الأكثر طلباً)',
-      badge: 'كارت للعمل + كارت احتياطي • وفر 80 ج.م',
-      price: '520',
-      unit: 'ج.م بدلاً من 600 ج.م',
+      name: 'باقة المحترفين VIP',
+      badge: 'الأكثر اختياراً • قيمة مضاعفة',
+      price: '600',
+      unit: 'ج.م دفعة واحدة للأبد',
       featured: true,
       href: orderVip,
       items: [
-        '2 كارت KUWI NFC + QR مربوطان بنفس هويتك الرقمية',
-        'تصميم مخصص بشعارك أو لونك المفضل مجاناً',
-        'تفعيل فوري لبطاقتك الرقمية قبل وصول الشحن',
-        'جمع أرقام العملاء الذين يتواصلون معك داخل لوحتك',
-        'ضمان استبدال واسترجاع كامل لمدة 365 يوماً',
+        '2 كارت KUWI الذكية (كارت في محفظتك + كارت احتياطي في العربية أو المكتب مربوطين ببعض)',
+        'هدية التصميم المخصص: فريقنا بيصمم الكارت بشعارك وهويتك الخاصة مجاناً',
+        'هدية التجهيز الكامل (Done-For-You): بنملى كل أرقامك وروابطك وبورتفوليوك عنك بالكامل',
+        'هدية اصطياد العملاء: نموذج على بطاقتك يجمع أرقام الناس اللي بتقابلك تلقائياً',
+        'تفعيل فوري من لحظة الحجز + تعديل بياناتك مدى الحياة بدون اشتراك',
+        'ضمان KUWI الذهبي: 365 يوم استبدال أو استرداد كامل',
       ],
     },
   ];
@@ -101,14 +103,14 @@ export default function IndividualsLandingPage() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-7 flex flex-col gap-5">
               <span className="self-start px-3.5 py-1.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#C8FF2E] text-xs font-semibold">
-                لسه بتطبع كروت ورقية بتترمي بعد أسبوع؟
+                88% من الكروت الورقية بتترمي في أول أسبوع
               </span>
               <h1 className="text-3xl sm:text-5xl font-bold leading-tight text-white" style={{ textWrap: 'balance' }}>
-                بطاقة واحدة ذكية تحفظ رقمك على موبايل عميلك{' '}
-                <span className="text-[#C8FF2E]">بلمسة واحدة للأبد</span>
+                لمست الكارت لعميل معاه آيفون وما اتحفظش رقمك؟{' '}
+                <span className="text-[#C8FF2E]">أو طلع عليه اشتراك سنوي؟</span>
               </h1>
               <p className="text-base text-neutral-300 leading-relaxed">
-                88% من الكروت الورقية تُرمى خلال 7 أيام. مع كارت <strong className="text-white">KUWI الذكي للأفراد</strong>، لمسة واحدة على ظهر موبايل عميلك تفتح هويتك المهنية الفخمة ويحفظ رقمك في جهات اتصاله خلال ثانيتين — وتعدل بياناتك من موبايلك في أي وقت بدون إعادة طباعة.
+                مع <strong className="text-white">KUWI الذكي للأفراد</strong> المشكلتين انتهوا للأبد: الكارت بيفتح صفحة ويب فخمة فيها زر حفظ رقمك على الآيفون والأندرويد في ثانيتين، وتقدر تعدّل أرقامك وحساباتك من موبايلك في أي وقت من غير ما تدفع اشتراك سنوي ولا تعيد طباعة كارت واحد.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -116,14 +118,14 @@ export default function IndividualsLandingPage() {
                   href="#pricing"
                   className="min-h-[52px] px-7 py-3.5 bg-[#C8FF2E] hover:brightness-95 text-[#0B0B0F] font-bold text-base rounded-2xl inline-flex items-center justify-center gap-2 transition"
                 >
-                  <span>اطلب كارتك الشخصي الآن</span>
+                  <span>شوف الباقات واطلب كارتك</span>
                   <ArrowUpLeftIcon size={18} />
                 </a>
                 <Link
                   href="/auth/login?mode=signup"
                   className="min-h-[52px] px-6 py-3.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold text-sm rounded-2xl inline-flex items-center justify-center gap-2 transition"
                 >
-                  <span>جرّب بناء بطاقتك الرقمية مجاناً</span>
+                  <span>اعمل بطاقتك الرقمية دلوقتي مجاناً</span>
                 </Link>
               </div>
             </div>
@@ -132,10 +134,10 @@ export default function IndividualsLandingPage() {
             <div className="lg:col-span-5 bg-[#15151F] border border-[#7C3AED]/40 rounded-3xl p-6 flex flex-col gap-5">
               <div className="flex items-center justify-between text-xs text-neutral-400">
                 <span className="px-2.5 py-1 rounded-full bg-[#7C3AED]/20 text-[#C8FF2E] font-semibold">
-                  إثبات حي لبطاقة عميل
+                  نموذج حي لبطاقة عميل
                 </span>
                 <Link href="/c/ahmed-wasim" target="_blank" className="text-[#C8FF2E] underline font-semibold">
-                  معاينة البطاقة الحقيقية ↗
+                  جرّب البطاقة بنفسك ↗
                 </Link>
               </div>
               <div className="text-center py-2">
@@ -173,10 +175,9 @@ export default function IndividualsLandingPage() {
           </div>
         </section>
 
-        {/* Perfect For Avatar Callouts */}
         <section className="py-12 px-4 sm:px-6 border-t border-white/10 bg-[#12121A]">
           <div className="max-w-5xl mx-auto text-center">
-            <h2 className="text-lg font-bold text-white mb-5">مصممة خصيصاً للمحترفين الذين يصنعون الانطباع الأول</h2>
+            <h2 className="text-lg font-bold text-white mb-5">مصممة للناس اللي أول انطباع ليهم بيفرق في شغلهم</h2>
             <div className="flex flex-wrap justify-center gap-2.5">
               {perfectFor.map((role) => (
                 <span
@@ -190,11 +191,11 @@ export default function IndividualsLandingPage() {
           </div>
         </section>
 
-        {/* Hormozi Pricing Slabs */}
+        {/* Hormozi Pure Value Stacking */}
         <section id="pricing" className="py-20 px-4 sm:px-6 border-t border-white/10">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl sm:text-4xl font-bold text-white text-center mb-10">
-              استثمر مرة واحدة — وشارك هويتك <span className="text-[#C8FF2E]">مدى الحياة</span>
+              بتدفع مرة واحدة بس — وقيمة كارتك <span className="text-[#C8FF2E]">بتشتغل معاك طول العمر</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {slabs.map((slab) => (
@@ -238,7 +239,7 @@ export default function IndividualsLandingPage() {
             </div>
             <div className="mt-8 p-5 rounded-2xl bg-[#7C3AED]/15 border border-[#7C3AED]/40 flex items-center justify-center gap-2.5 text-xs sm:text-sm text-neutral-200 text-center">
               <ShieldIcon size={18} className="text-[#C8FF2E] shrink-0" />
-              <span>ضمان استرجاع 365 يوماً كاملاً — بدون أي اشتراك شهري أو رسوم مخفية</span>
+              <span>ضمان استبدال واسترداد 365 يوم كاملة — بدون اشتراك سنوي أو مصاريف مخفية</span>
             </div>
           </div>
         </section>
