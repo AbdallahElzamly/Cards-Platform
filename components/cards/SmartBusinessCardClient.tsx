@@ -162,6 +162,7 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
   const [visitorName, setVisitorName] = useState('');
   const [visitorPhone, setVisitorPhone] = useState('');
   const [visitorNote, setVisitorNote] = useState('');
+  const [hpField, setHpField] = useState('');
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -182,7 +183,7 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
   const profileUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}/c/${card.slug}`
-      : `https://kuwi-liart.vercel.app/c/${card.slug}`;
+      : `${process.env.NEXT_PUBLIC_APP_URL || 'https://kuwi-liart.vercel.app'}/c/${card.slug}`;
 
   const copyValue = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -216,6 +217,7 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
     formData.set('visitor_name', visitorName);
     formData.set('visitor_phone', visitorPhone);
     formData.set('visitor_note', visitorNote);
+    formData.set('b_check', hpField);
 
     startTransition(async () => {
       const res = await submitCardLeadAction(formData);
@@ -226,6 +228,7 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
         setVisitorName('');
         setVisitorPhone('');
         setVisitorNote('');
+        setHpField('');
       }
     });
   };
@@ -606,7 +609,18 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
 
               <input
                 type="text"
+                name="b_check"
+                value={hpField}
+                onChange={(e) => setHpField(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="hidden"
+              />
+              <input
+                type="text"
                 required
+                maxLength={80}
                 value={visitorName}
                 onChange={(e) => setVisitorName(e.target.value)}
                 placeholder="اسمك الكامل"
@@ -615,6 +629,7 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
               <input
                 type="tel"
                 required
+                maxLength={20}
                 dir="ltr"
                 value={visitorPhone}
                 onChange={(e) => setVisitorPhone(e.target.value)}
@@ -623,11 +638,15 @@ function SmartBusinessCardInner({ card }: SmartBusinessCardClientProps) {
               />
               <input
                 type="text"
+                maxLength={500}
                 value={visitorNote}
                 onChange={(e) => setVisitorNote(e.target.value)}
                 placeholder="الشركة أو ملاحظة قصيرة (اختياري)"
                 className={`w-full min-h-[46px] px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none ${palette.inputBg}`}
               />
+              <p className={`text-[11px] leading-relaxed ${palette.textMuted}`}>
+                سيتم مشاركة اسمك ورقمك وملاحظتك مع صاحب هذه البطاقة للتواصل معك لاحقاً.
+              </p>
               <button
                 type="submit"
                 disabled={isPending}

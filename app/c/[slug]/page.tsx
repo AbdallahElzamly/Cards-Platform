@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { recordCardScan } from '@/lib/record-scan';
 import { BusinessCard } from '@/types/smart-cards';
 import SmartBusinessCardClient from '@/components/cards/SmartBusinessCardClient';
 
@@ -27,16 +28,9 @@ export default async function BusinessCardPage({ params }: PageProps) {
     notFound();
   }
 
-  // Record scan on parent card if available
+  // Record scan on parent card (bot-filtered & rate-limited)
   if (card.card_id) {
-    try {
-      await supabaseAdmin.from('scans').insert({
-        card_id: card.card_id,
-        device_type: 'mobile',
-      });
-    } catch (err) {
-      console.error('Scan insert error:', err);
-    }
+    await recordCardScan(card.card_id);
   }
 
   return <SmartBusinessCardClient card={card as BusinessCard} />;

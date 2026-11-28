@@ -329,7 +329,7 @@ export async function lookupOrRegisterAndStamp(
       if (consentAccepted === false) {
         return {
           success: false,
-          error: 'يرجى الموافقة على حفظ الرقم مشفراً لتسجيل زياراتك في برنامج الولاء.',
+          error: 'يرجى الموافقة على حفظ رقم موبايلك لدى المطعم لتسجيل زياراتك والتواصل معك بعروض برنامج الولاء.',
         };
       }
 

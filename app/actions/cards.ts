@@ -1,11 +1,24 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
 import { isSuperAdminEmail } from '@/lib/admin-auth';
 import { CardSocialLinks, CardSurfaceTheme, parseSocialLinks } from '@/types/smart-cards';
+
+async function getSiteOrigin(): Promise<string> {
+  const hdrs = await headers();
+  const forwardedHost = hdrs.get('x-forwarded-host') || hdrs.get('host');
+  const forwardedProto = hdrs.get('x-forwarded-proto') || 'https';
+  if (forwardedHost) {
+    const cleanHost = forwardedHost.split(',')[0].trim();
+    const proto = cleanHost.includes('localhost') || cleanHost.startsWith('127.') ? 'http' : forwardedProto.split(',')[0].trim();
+    return `${proto}://${cleanHost}`;
+  }
+  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+}
 
 function normalizeUrl(raw: string | null | undefined): string | undefined {
   const trimmed = (raw || '').trim();
@@ -32,20 +45,35 @@ function buildCleanSlug(name: string, fallbackCode: string): string {
 
 export async function activateCardAction(
   formData: FormData
-): Promise<{ success: boolean; error?: string; slug?: string }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  slug?: string;
+  requiresEmailConfirmation?: boolean;
+  message?: string;
+}> {
   try {
     const env = getServerSupabaseEnv();
     if (!env.isAdminConfigured || !env.isAuthConfigured) {
       return {
         success: false,
-        error: `إعدادات النظام غير مكتملة (${env.missingVars.join(', ')}). يرجى إضافتها في Vercel.`,
+        error: `إعدادات النظام غير مكتملة (${env.missingVars.join(', ')}). يرجى إضافتها في إعدادات السيرفر (Environment Variables).`,
       };
+    }
+
+    const rawCode = formData.get('code')?.toString() || '';
+    const code = rawCode.trim().toUpperCase();
+    const productType = formData.get('product_type')?.toString() === 'review' ? 'review' : 'business';
+    const targetUrl = normalizeUrl(formData.get('target_url')?.toString()) || null;
+
+    if (!code) {
+      return { success: false, error: 'كود الكارت غير صالح.' };
     }
 
     const supabaseAdmin = getSupabaseAdmin();
     const supabase = await createSupabaseServerClient();
 
-    // 1. Check current authenticated user OR perform inline 1-step signup/signin
+    // 1. Check current authenticated user OR perform verified signup/signin
     let {
       data: { user },
     } = await supabase.auth.getUser();
@@ -71,50 +99,80 @@ export async function activateCardAction(
       }
 
       if (authMode === 'signup') {
-        const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        const siteOrigin = await getSiteOrigin();
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
           email: accountEmail,
           password: accountPassword,
-          email_confirm: true,
-          user_metadata: {
-            full_name: displayName || 'صاحب الكارت',
-            account_kind: 'individual',
+          options: {
+            emailRedirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent('/activate/' + code)}`,
+            data: {
+              full_name: displayName || 'صاحب الكارت',
+              account_kind: 'individual',
+            },
           },
         });
 
-        // If user already exists, gracefully try signing in with the provided password
-        if (createErr && !createErr.message.toLowerCase().includes('already')) {
+        if (signUpErr) {
+          const msg = signUpErr.message.toLowerCase();
+          if (msg.includes('already') || msg.includes('registered')) {
+            return {
+              success: false,
+              error: 'هذا البريد مسجل مسبقاً. اختر «لدي حساب» وسجّل الدخول بكلمة مرورك.',
+            };
+          }
           return {
             success: false,
-            error: `تعذر إنشاء الحساب: ${createErr.message}`,
+            error: `تعذر إنشاء الحساب: ${signUpErr.message}`,
           };
         }
-      }
 
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: accountEmail,
-        password: accountPassword,
-      });
+        if (
+          signUpData.user &&
+          Array.isArray(signUpData.user.identities) &&
+          signUpData.user.identities.length === 0
+        ) {
+          return {
+            success: false,
+            error: 'هذا البريد مسجل مسبقاً. اختر «لدي حساب» وسجّل الدخول بكلمة مرورك.',
+          };
+        }
 
-      if (signInErr || !signInData.user) {
-        return {
-          success: false,
-          error:
-            authMode === 'signup'
-              ? 'هذا البريد مسجل مسبقاً بكلمة مرور مختلفة. اختر «لدي حساب بالفعل» وأدخل كلمة مرورك الصحيحة.'
+        // Enforce email verification before binding hardware card ownership
+        if (signUpData.user && !signUpData.session) {
+          return {
+            success: false,
+            requiresEmailConfirmation: true,
+            message:
+              'بعتنالك رابط تأكيد على بريدك الإلكتروني — افتح الإيميل واضغط على الرابط، وهيرجعك تلقائياً لصفحة تفعيل الكارت بحسابك.',
+          };
+        }
+
+        user = signUpData.user;
+      } else {
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: accountEmail,
+          password: accountPassword,
+        });
+
+        if (signInErr || !signInData.user) {
+          const msg = signInErr?.message?.toLowerCase() || '';
+          return {
+            success: false,
+            error: msg.includes('email not confirmed')
+              ? 'حسابك محتاج تأكيد الإيميل الأول — افتح بريدك الإلكتروني واضغط على رابط التفعيل وبعدها فعّل الكارت.'
               : 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-        };
-      }
+          };
+        }
 
-      user = signInData.user;
+        user = signInData.user;
+      }
     }
 
-    const rawCode = formData.get('code')?.toString() || '';
-    const code = rawCode.trim().toUpperCase();
-    const productType = formData.get('product_type')?.toString() === 'review' ? 'review' : 'business';
-    const targetUrl = normalizeUrl(formData.get('target_url')?.toString()) || null;
-
-    if (!code) {
-      return { success: false, error: 'كود الكارت غير صالح.' };
+    if (!user) {
+      return {
+        success: false,
+        error: 'تعذر التحقق من الحساب. يرجى المحاولة مرة أخرى.',
+      };
     }
 
     // 2. Fetch card + any pre-provisioned business_card

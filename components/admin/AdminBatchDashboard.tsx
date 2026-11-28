@@ -59,7 +59,9 @@ export default function AdminBatchDashboard({
   const [isPending, startTransition] = useTransition();
 
   const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://kuwi-liart.vercel.app';
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://kuwi-liart.vercel.app';
 
   const copyText = (val: string, key: string) => {
     navigator.clipboard.writeText(val);

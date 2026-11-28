@@ -669,7 +669,7 @@ export default function CustomerLoyaltyCard({
                       className="w-full min-h-[50px] px-4 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl text-slate-900 text-base font-mono tracking-wider focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition text-left"
                     />
                     <span className="text-[11px] text-slate-500 mt-1 block">
-                      بنحفظه لحفظ أختامك وتوصيل العروض والخصومات الخاصة بيك 🎁
+                      بنحفظ رقمك عند {program.business_name} عشان نسجّل أختامك ويبعتلك عروض ومكافآت خاصة 🎁
                     </span>
                   </div>
 
@@ -682,7 +682,7 @@ export default function CustomerLoyaltyCard({
                       className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
                     />
                     <span className="text-[11px] text-slate-600 leading-relaxed font-semibold">
-                      أوافق على حفظ رقمي لتسجيل زياراتي واستلام عروض برنامج الولاء.
+                      أوافق على حفظ رقم موبايلي لدى {program.business_name} لتسجيل زياراتي ومكافآتي، والتواصل معي بعروض المطعم عبر واتساب أو الهاتف.
                     </span>
                   </label>
 

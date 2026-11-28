@@ -43,6 +43,7 @@ export default function ActivateCardClient({
   const [targetUrl, setTargetUrl] = useState(card.target_url || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,6 +96,7 @@ export default function ActivateCardClient({
     e.preventDefault();
     if (uploadingAvatar) return;
     setErrorMsg(null);
+    setInfoMsg(null);
 
     const formData = new FormData(e.currentTarget);
     formData.set('code', code);
@@ -107,6 +109,14 @@ export default function ActivateCardClient({
     startTransition(async () => {
       try {
         const res = await activateCardAction(formData);
+        if (res.requiresEmailConfirmation) {
+          setInfoMsg(
+            res.message ||
+              'بعتنالك رابط تأكيد على بريدك الإلكتروني — افتح الإيميل واضغط على الرابط لإكمال التفعيل.'
+          );
+          setAuthMode('signin');
+          return;
+        }
         if (!res.success) {
           setErrorMsg(res.error || 'تعذر تفعيل الكارت');
         } else {
@@ -141,6 +151,12 @@ export default function ActivateCardClient({
         {errorMsg && (
           <div className="p-3.5 mb-5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-medium text-center">
             {errorMsg}
+          </div>
+        )}
+
+        {infoMsg && (
+          <div className="p-4 mb-5 bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-2xl text-xs font-medium text-center leading-relaxed">
+            {infoMsg}
           </div>
         )}
 

@@ -376,7 +376,9 @@ export default function UnifiedClientDashboard({
     : [];
 
   const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://kuwi-liart.vercel.app';
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://kuwi-liart.vercel.app';
 
   const navItems: Array<{ id: SectionKey; label: string; icon: React.ReactNode }> = [
     {
@@ -1088,9 +1090,24 @@ export default function UnifiedClientDashboard({
               </div>
 
               {allCombinedLeads.length === 0 ? (
-                <p className="text-xs text-neutral-400 text-center py-12">
-                  لم يرسل أحد بياناته بعد. شارك رابط بطاقتك ليبدأ الزوار في ترك بياناتهم لك.
-                </p>
+                <div className="p-6 sm:p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center flex flex-col items-center gap-3">
+                  <p className="text-sm font-semibold text-neutral-900">
+                    لم يرسل أحد بياناته بعد
+                  </p>
+                  <p className="text-xs text-neutral-600 max-w-md leading-relaxed">
+                    أي عميل يلمس بطاقتك ويضغط على زر «شارك رقمك وبياناتك معي» ستظهر بياناته هنا فوراً مع زر واتساب، اتصال مباشر، وتنزيل ملف Excel (CSV).
+                  </p>
+                  {selectedCard?.business_card?.slug && (
+                    <a
+                      href={`/c/${selectedCard.business_card.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 min-h-[42px] px-4 py-2 bg-[#181818] hover:bg-neutral-800 text-white font-semibold rounded-xl text-xs inline-flex items-center gap-1.5"
+                    >
+                      <span>افتح بطاقتك وجرّب الفورم بنفسك ↗</span>
+                    </a>
+                  )}
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">

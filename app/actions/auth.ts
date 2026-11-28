@@ -1,8 +1,8 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseEnv } from '@/lib/env';
 
 export interface AuthActionResult {
@@ -12,19 +12,31 @@ export interface AuthActionResult {
   message?: string;
 }
 
+async function getSiteOrigin(): Promise<string> {
+  const hdrs = await headers();
+  const forwardedHost = hdrs.get('x-forwarded-host') || hdrs.get('host');
+  const forwardedProto = hdrs.get('x-forwarded-proto') || 'https';
+  if (forwardedHost) {
+    const cleanHost = forwardedHost.split(',')[0].trim();
+    const proto = cleanHost.includes('localhost') || cleanHost.startsWith('127.') ? 'http' : forwardedProto.split(',')[0].trim();
+    return `${proto}://${cleanHost}`;
+  }
+  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+}
+
 function mapSupabaseAuthError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err || '');
   const lower = raw.toLowerCase();
 
   if (raw.startsWith('MISSING_SUPABASE_AUTH_ENV:')) {
     const vars = raw.split(':')[1] || '';
-    return `متغيرات الاتصال بقاعدة البيانات غير مضبوطة على السيرفر (${vars}). يرجى إضافتها في Vercel ثم عمل Redeploy.`;
+    return `متغيرات الاتصال بقاعدة البيانات غير مضبوطة على السيرفر (${vars}). يرجى إضافتها في إعدادات السيرفر (Environment Variables) ثم إعادة النشر.`;
   }
   if (lower.includes('invalid login credentials')) {
     return 'البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من البيانات أو أنشئ حساباً جديداً.';
   }
   if (lower.includes('email not confirmed')) {
-    return 'يرجى تفعيل حسابك من الرابط المرسل لبريدك الإلكتروني، أو حاول تسجيل الدخول مرة أخرى.';
+    return 'حسابك محتاج تأكيد الإيميل الأول — افتح بريدك الإلكتروني واضغط على رابط التفعيل وبعدها سجل الدخول.';
   }
   if (lower.includes('user already registered') || lower.includes('already been registered')) {
     return 'هذا البريد مسجل بالفعل، انتقل لتبويب «تسجيل الدخول» وادخل مباشرة.';
@@ -54,7 +66,7 @@ export async function merchantSignInAction(
     if (!env.isAuthConfigured) {
       return {
         success: false,
-        error: `إعدادات Supabase غير مكتملة على السيرفر (${env.missingVars.join(', ')}). أضفها في Vercel Environment Variables ثم أعد النشر.`,
+        error: `إعدادات Supabase غير مكتملة على السيرفر (${env.missingVars.join(', ')}). أضفها في إعدادات السيرفر (Environment Variables) ثم أعد النشر.`,
       };
     }
 
@@ -64,33 +76,16 @@ export async function merchantSignInAction(
     }
 
     const supabase = await createSupabaseServerClient();
-    let { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
     });
 
-    if (error && error.message.toLowerCase().includes('email not confirmed') && env.isAdminConfigured) {
-      try {
-        const admin = getSupabaseAdmin();
-        const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
-        const targetUser = usersList?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
-        if (targetUser) {
-          await admin.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
-          const retry = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-          data = retry.data;
-          error = retry.error;
-        }
-      } catch (healErr) {
-        console.warn('Auto-confirm heal skipped:', healErr);
-      }
-    }
-
     if (error || !data.user) {
+      const msg = error?.message?.toLowerCase() || '';
       return {
         success: false,
+        requiresEmailConfirmation: msg.includes('email not confirmed'),
         error: mapSupabaseAuthError(error),
       };
     }
@@ -109,7 +104,8 @@ export async function merchantSignInAction(
 }
 
 /**
- * Public signups ALWAYS create isolated Individual accounts (`account_kind: 'individual'`).
+ * Public signups ALWAYS create isolated Individual accounts (`account_kind: 'individual'`)
+ * and enforce Supabase email verification (`emailRedirectTo`).
  * Company fleets and Restaurant loyalty programs are provisioned exclusively by Super Admin.
  */
 export async function merchantSignUpAction(
@@ -122,7 +118,7 @@ export async function merchantSignUpAction(
     if (!env.isAuthConfigured) {
       return {
         success: false,
-        error: `إعدادات Supabase غير مكتملة على السيرفر (${env.missingVars.join(', ')}). أضفها في Vercel Environment Variables ثم أعد النشر.`,
+        error: `إعدادات Supabase غير مكتملة على السيرفر (${env.missingVars.join(', ')}). أضفها في إعدادات السيرفر (Environment Variables) ثم أعد النشر.`,
       };
     }
 
@@ -135,49 +131,14 @@ export async function merchantSignUpAction(
     }
 
     const trimmedName = displayName?.trim().slice(0, 80) || '';
+    const siteOrigin = await getSiteOrigin();
     const supabase = await createSupabaseServerClient();
-
-    if (env.isAdminConfigured) {
-      const admin = getSupabaseAdmin();
-      const { error: createErr } = await admin.auth.admin.createUser({
-        email: cleanEmail,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: trimmedName || undefined,
-          account_kind: 'individual',
-        },
-      });
-
-      if (createErr) {
-        return {
-          success: false,
-          error: mapSupabaseAuthError(createErr),
-        };
-      }
-
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (signInErr) {
-        return {
-          success: false,
-          error: mapSupabaseAuthError(signInErr),
-        };
-      }
-
-      return {
-        success: true,
-        message: 'تم إنشاء حسابك بنجاح. جارٍ تجهيز بطاقتك الذكية...',
-      };
-    }
 
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
       options: {
+        emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard`,
         data: {
           full_name: trimmedName || undefined,
           account_kind: 'individual',
@@ -192,11 +153,19 @@ export async function merchantSignUpAction(
       };
     }
 
+    // Supabase returns an empty identities array when email already exists with obfuscation enabled
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      return {
+        success: false,
+        error: 'هذا البريد مسجل بالفعل، انتقل لتبويب «تسجيل الدخول» أو راجع بريدك الإلكتروني.',
+      };
+    }
+
     if (data.user && !data.session) {
       return {
         success: true,
         requiresEmailConfirmation: true,
-        message: 'تم إنشاء الحساب بنجاح. تفقد بريدك الإلكتروني لتأكيد الحساب ثم سجل الدخول.',
+        message: 'بعتنالك رابط تأكيد على بريدك الإلكتروني — افتح الإيميل واضغط على الرابط عشان تفعّل حسابك وتدخل على لوحتك.',
       };
     }
 
@@ -206,6 +175,52 @@ export async function merchantSignUpAction(
     };
   } catch (err) {
     console.error('merchantSignUpAction error:', err);
+    return {
+      success: false,
+      error: mapSupabaseAuthError(err),
+    };
+  }
+}
+
+export async function resendConfirmationEmailAction(email: string): Promise<AuthActionResult> {
+  try {
+    const env = getServerSupabaseEnv();
+    if (!env.isAuthConfigured) {
+      return {
+        success: false,
+        error: `إعدادات Supabase غير مكتملة على السيرفر (${env.missingVars.join(', ')}).`,
+      };
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      return { success: false, error: 'أدخل بريدك الإلكتروني أولاً لإعادة إرسال رابط التفعيل.' };
+    }
+
+    const siteOrigin = await getSiteOrigin();
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
+      options: {
+        emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard`,
+      },
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: mapSupabaseAuthError(error),
+      };
+    }
+
+    return {
+      success: true,
+      requiresEmailConfirmation: true,
+      message: 'تم إرسال رابط تأكيد جديد لبريدك الإلكتروني — تفقد الوارد أو مجلد الرسائل غير المرغوب فيها (Spam).',
+    };
+  } catch (err) {
+    console.error('resendConfirmationEmailAction error:', err);
     return {
       success: false,
       error: mapSupabaseAuthError(err),

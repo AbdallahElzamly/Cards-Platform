@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   merchantSignInAction,
   merchantSignUpAction,
+  resendConfirmationEmailAction,
 } from '@/app/actions/auth';
 
 interface MerchantLoginFormProps {
@@ -32,12 +33,14 @@ export default function MerchantLoginForm({
     callbackError ? 'تعذر التحقق من الرابط، يرجى تسجيل الدخول ببريدك وكلمة المرور.' : null
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+    setNeedsEmailConfirm(false);
 
     startTransition(async () => {
       const res =
@@ -47,18 +50,34 @@ export default function MerchantLoginForm({
 
       if (!res.success) {
         setErrorMsg(res.error || 'تعذر تسجيل الدخول، يرجى المحاولة مرة أخرى.');
+        if (res.requiresEmailConfirmation || res.error?.includes('تأكيد الإيميل')) {
+          setNeedsEmailConfirm(true);
+        }
         return;
       }
 
       setSuccessMsg(res.message || 'تم تسجيل الدخول بنجاح.');
 
       if (res.requiresEmailConfirmation) {
+        setNeedsEmailConfirm(true);
         setMode('signin');
         return;
       }
 
       router.replace(redirectTo);
       router.refresh();
+    });
+  };
+
+  const handleResendConfirmation = () => {
+    setErrorMsg(null);
+    startTransition(async () => {
+      const res = await resendConfirmationEmailAction(email);
+      if (!res.success) {
+        setErrorMsg(res.error || 'تعذر إعادة إرسال رابط التأكيد.');
+      } else {
+        setSuccessMsg(res.message || 'تم إرسال رابط التأكيد بنجاح.');
+      }
     });
   };
 
@@ -148,6 +167,17 @@ export default function MerchantLoginForm({
           <div className="p-3.5 mb-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-medium text-center leading-relaxed">
             {successMsg}
           </div>
+        )}
+
+        {(needsEmailConfirm || errorMsg?.includes('تأكيد الإيميل')) && email.trim() && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleResendConfirmation}
+            className="w-full mb-4 min-h-[42px] py-2 px-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            إعادة إرسال رابط التأكيد لبريدي
+          </button>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

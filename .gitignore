@@ -37,6 +37,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cloudflare / open-next
+/.open-next/
+/.wrangler/
+
+# internal business & financial files (never commit to git)
+/NFC CARD/
+*.xlsx
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

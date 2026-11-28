@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { recordCardScan } from '@/lib/record-scan';
 
 interface PageProps {
   params: Promise<{ code: string }>;
@@ -39,15 +40,8 @@ export default async function DynamicGatewayPage({ params }: PageProps) {
     );
   }
 
-  // Record scan (best effort, non-blocking)
-  try {
-    await supabaseAdmin.from('scans').insert({
-      card_id: card.id,
-      device_type: 'mobile',
-    });
-  } catch (scanErr) {
-    console.error('Failed to record scan:', scanErr);
-  }
+  // Record scan (bot-filtered & rate-limited, best effort)
+  await recordCardScan(card.id);
 
   // 2. If suspended
   if (card.status === 'suspended') {
